@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Network Traffic Analysis</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            text-align: center;
+            color: #333;
+        }
+        .authors {
+            text-align: center;
+            color: #555;
+            font-size: 1.1em;
+            margin-top: 10px;
+            margin-bottom: 20px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background-color: #fff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background-color: #4CAF50;
+            color: white;
+        }
+        tr:hover {
+            background-color: #f5f5f5;
+        }
+        .attack {
+            color: red;
+            font-weight: bold;
+        }
+        .normal {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Real-Time Network Traffic Analysis</h1>
+    <div class="authors">
+        <p>Authors: Công Quân - Quốc Minh</p>
+        <p>Course: Môn Đồ án chuyên ngành</p>
+    </div>
+    <table id="flowTable">
+        <thead>
+            <tr>
+                <th>Source IP</th>
+                <th>Source Port</th>
+                <th>Destination IP</th>
+                <th>Destination Port</th>
+                <th>Binary Prediction</th>
+                <th>Confidence</th>
+                <th>Attack Type</th>
+                <th>Timestamp</th>
+            </tr>
+        </thead>
+        <tbody id="flowBody"></tbody>
+    </table>
+
+    <script>
+        function updateTable() {
+            fetch('/get_flows')
+                .then(response => response.json())
+                .then(data => {
+                    const tbody = document.getElementById('flowBody');
+                    tbody.innerHTML = '';
+                    // Iterate in reverse order to show newest flows at the top
+                    data.slice().reverse().forEach(flow => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${flow.src_ip}</td>
+                            <td>${flow.src_port}</td>
+                            <td>${flow.dst_ip}</td>
+                            <td>${flow.dst_port}</td>
+                            <td class="${flow.binary_prediction === 'ATTACK' ? 'attack' : 'normal'}">${flow.binary_prediction}</td>
+                            <td>${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A'}</td>
+                            <td>${flow.multi_prediction}</td>
+                            <td>${flow.timestamp}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                });
+        }
+
+        // Update table every 2 seconds
+        setInterval(updateTable, 2000);
+        // Initial update
+        updateTable();
+    </script>
+</body>
+</html>
