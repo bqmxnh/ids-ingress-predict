@@ -62,9 +62,8 @@
                 <th>Source Port</th>
                 <th>Destination IP</th>
                 <th>Destination Port</th>
-                <th>Binary Prediction</th>
+                <th>Prediction</th>
                 <th>Confidence</th>
-                <th>Attack Type</th>
                 <th>Timestamp</th>
             </tr>
         </thead>
@@ -88,7 +87,6 @@
                             <td>${flow.dst_port}</td>
                             <td class="${flow.binary_prediction === 'ATTACK' ? 'attack' : 'normal'}">${flow.binary_prediction}</td>
                             <td>${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A'}</td>
-                            <td>${flow.multi_prediction}</td>
                             <td>${flow.timestamp}</td>
                         `;
                         tbody.appendChild(row);
