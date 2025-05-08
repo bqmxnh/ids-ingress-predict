@@ -51,7 +51,13 @@ ifconfig
 ### 4. Đảm bảo thư mục models có sẵn
 - Đặt các tệp best_binary_model.pkl, scaler.pkl, và label_encoder_binary.pkl vào thư mục models/.
 - Nếu bạn chưa có các tệp này, cần huấn luyện mô hình trên bộ dữ liệu (ví dụ: CICIDS2017) và lưu bằng joblib.
-
+### 5. Thêm đường dẫn cho các file models
+- Mở tệp application.py và cập nhật đường dẫn cho các models.
+```bash
+MODEL_BINARY_FILE = "/path/to/your/IDS/models/best_binary_model.pkl"
+SCALER_FILE = "/path/to/your/IDS/models/scaler.pkl"
+LE_BINARY_FILE = "/path/to/your/IDS/models/label_encoder_binary.pkl"
+```
 ## Hướng dẫn chạy hệ thống
 ### 1. Chạy chương trình
 - Trong thư mục chứa application.py, chạy lệnh:
