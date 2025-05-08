@@ -93,6 +93,6 @@ sudo python3 application.py
 - **Quốc Minh**  
   Email: 22520855@gm.uit.edu.vn
   ## Giấy phép
-Dự án được phát triển trong khuôn khổ đề tài "Áp dụng các kỹ thuật học máy để phát hiện lưu lượng mạng độc hại trong điện toán đám mây". Mã nguồn được cung cấp với mục đích học tập và nghiên cứu.
+Dự án được phát triển trong khuôn khổ đề tài **Áp dụng các kỹ thuật học máy để phát hiện lưu lượng mạng độc hại trong điện toán đám mây**. Mã nguồn được cung cấp với mục đích học tập và nghiên cứu.
 
 
