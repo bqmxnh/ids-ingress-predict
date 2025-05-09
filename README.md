@@ -8,7 +8,7 @@ Hệ thống triển khai một hệ thống phát hiện xâm nhập (IDS) th�
 - Lưu kết quả vào tệp CSV (predictions.csv) và hiển thị qua giao diện web.
 - Hỗ trợ giám sát từ xa thông qua giao diện web Flask.
 ## Cấu trúc thư mục
-- **models/**: Thư mục chứa các tệp mô hình học máy đã được huấn luyện.  
+- **models/**: Thư mục chứa các tệp mô hình học máy đã được huấn luyện (có thể thay đổi tùy ý).  
   - **best_binary_model.pkl**: Mô hình phân loại nhị phân.  
   - **scaler.pkl**: Bộ chuẩn hóa đặc trưng (StandardScaler).  
   - **label_encoder_binary.pkl**: Bộ mã hóa nhãn cho phân loại nhị phân (LabelEncoder).  
