@@ -1,98 +1,98 @@
-# Hệ thống Phát hiện Xâm nhập Thời gian Thực (Real-time IDS)
-## Giới thiệu
-Hệ thống triển khai một hệ thống phát hiện xâm nhập (IDS) thời gian thực sử dụng thư viện nfstream để phân tích lưu lượng mạng, trích xuất đặc trưng, và dự đoán các hành vi bất thường (tấn công hoặc bình thường) bằng mô hình học máy. Kết quả được lưu vào tệp CSV và hiển thị qua giao diện web sử dụng Flask.
-### Tính năng chính
-- Bắt và phân tích lưu lượng mạng theo thời gian thực bằng nfstream.
-- Trích xuất đặc trưng từ luồng mạng theo định dạng CICIDS2017.
-- Dự đoán hành vi mạng (bình thường hoặc tấn công) bằng mô hình học máy.
-- Lưu kết quả vào tệp CSV (predictions.csv) và hiển thị qua giao diện web.
-- Hỗ trợ giám sát từ xa thông qua giao diện web Flask.
-## Cấu trúc thư mục
-- **models/**: Thư mục chứa các tệp mô hình học máy đã được huấn luyện (có thể thay đổi tùy ý).  
-  - **best_binary_model.pkl**: Mô hình phân loại nhị phân.  
-  - **scaler.pkl**: Bộ chuẩn hóa đặc trưng (StandardScaler).  
-  - **label_encoder_binary.pkl**: Bộ mã hóa nhãn cho phân loại nhị phân (LabelEncoder).  
-- **templates/**: Thư mục chứa giao diện web.  
-  - **index.html**: Tệp HTML hiển thị kết quả dự đoán.  
-- **application.py**: Mã nguồn chính, xử lý gói tin, dự đoán, và hiển thị kết quả.  
-- **predictions.csv**: Tệp lưu kết quả dự đoán (IP nguồn, IP đích, nhãn, xác suất, thời gian).  
-## Yêu cầu hệ thống
-- Hệ điều hành: Ubuntu (hoặc các hệ điều hành Linux khác).
-- Python 3.6 trở lên.
-- Các thư viện Python:
+# Real-time Intrusion Detection System (IDS)
+## Introduction
+This system implements a real-time Intrusion Detection System (IDS) using the nfstream library to analyze network traffic, extract features, and predict anomalous behaviors (attack or normal) using a machine learning model. Results are saved to a CSV file and displayed via a web interface built with Flask.
+### Key Features
+- Capture and analyze network traffic in real-time using nfstream.
+- Extract features from network flows in CICIDS2017 format.
+- Predict network behavior (normal or attack) using a machine learning model.
+- Save results to a CSV file (predictions.csv) and display them on a Flask web interface.
+- Support remote monitoring through the Flask web interface.
+## Directory Structure
+- **models/**: Directory containing pre-trained machine learning model files (customizable).
+  - **best_binary_model.pkl**: Binary classification model.
+  - **scaler.pkl**: Feature scaler (StandardScaler).
+  - **label_encoder_binary.pkl**: Label encoder for binary classification (LabelEncoder). 
+- **templates/**: Directory for web interface files. 
+  - **index.html**: HTML file for displaying prediction results.
+- **application.py**: Main source code for packet processing, prediction, and result display.
+- **predictions.csv**: File storing prediction results (source IP, destination IP, label, probability, timestamp).
+## System Requirements
+- Operating System: Ubuntu (or other Linux-based systems).
+- Python 3.6 or higher.
+- Required Python libraries:
   - nfstream
   - pandas
   - numpy
   - joblib
   - scikit-learn
   - flask
-## Hướng dẫn cài đặt
+## Installation Guide
 
-### 1. Cài đặt Python và pip
-- Đảm bảo Python 3 và pip đã được cài đặt trên hệ thống của bạn. Nếu chưa, chạy các lệnh sau trên Ubuntu:
+### 1. Install Python and pip
+- Ensure Python 3 and pip are installed. If not, run the following commands on Ubuntu:
 ```bash
 sudo apt update
 sudo apt install python3 python3-pip
 ```
-### 2. Cài đặt các thư viện cần thiết
-- Cài đặt các thư viện Python bằng lệnh:
+### 2. Install Required Libraries
+- Install the necessary Python libraries using:
 ```bash
 pip3 install nfstream pandas numpy joblib scikit-learn flask
 ```
-### 3. Cấu hình giao diện mạng
-- Mở tệp application.py và cập nhật biến INTERFACE với giao diện mạng của bạn (ví dụ: eth0, wlan0).
+### 3. Configure Network Interface
+- Open application.py and update the INTERFACE variable with your network interface (e.g., eth0, wlan0).
 ```bash
 INTERFACE = "ens33"  # Thay "ens33" bằng giao diện của bạn
 ```
-- Để kiểm tra giao diện mạng, sử dụng lệnh:
+- To check available network interfaces, use:
 ```bash
 ifconfig
 ```
-### 4. Đảm bảo thư mục models có sẵn
-- Đặt các tệp best_binary_model.pkl, scaler.pkl, và label_encoder_binary.pkl vào thư mục models/.
-- Nếu bạn chưa có các tệp này, cần huấn luyện mô hình trên bộ dữ liệu (ví dụ: CICIDS2017) và lưu bằng joblib.
-### 5. Thêm đường dẫn cho các file models
-- Mở tệp application.py và cập nhật đường dẫn cho các models.
+### 4. Ensure Model Files are Available
+- Place the best_binary_model.pkl, scaler.pkl, and label_encoder_binary.pkl files in the models/ directory.
+- If these files are not available, train a model on a dataset (e.g., CICIDS2017) and save it using joblib.
+### 5. Update Model File Paths
+- Open application.py and update the paths for the model files:
 ```bash
 MODEL_BINARY_FILE = "/path/to/your/IDS/models/best_binary_model.pkl"
 SCALER_FILE = "/path/to/your/IDS/models/scaler.pkl"
 LE_BINARY_FILE = "/path/to/your/IDS/models/label_encoder_binary.pkl"
 ```
-## Hướng dẫn chạy hệ thống
-### 1. Chạy chương trình
-- Trong thư mục chứa application.py, chạy lệnh:
+## Running the System
+### 1. Start the Program
+- In the directory containing application.py, run:
 ```bash
 python3 application.py
 ```
-- Chương trình sẽ:
-  - Bắt gói tin từ giao diện mạng đã cấu hình.
-  - Trích xuất đặc trưng, dự đoán, và lưu kết quả vào predictions.csv.
-  - Khởi động giao diện web Flask tại http://localhost:5001.
-### 2. Truy cập giao diện web
-- Mở trình duyệt và truy cập:
+- The program will:
+  - Capture packets from the configured network interface.
+  - Extract features, make predictions, and save results to predictions.csv.
+  - Launch the Flask web interface at http://localhost:5001.
+### 2. Access the Web Interface
+- Open a browser and navigate to:
 ```bash
 http://localhost:5001
 ```
-- Giao diện sẽ hiển thị các luồng mạng đã xử lý, bao gồm IP nguồn, IP đích, cổng, nhãn dự đoán, và xác suất.
-## Cách sử dụng
-- **Giám sát thời gian thực:** Hệ thống sẽ liên tục bắt gói tin và dự đoán hành vi mạng. Kết quả được cập nhật trên giao diện web.
-- **Phân tích hậu kỳ:** Kiểm tra tệp predictions.csv để xem lịch sử các luồng mạng đã xử lý.
-- **Tùy chỉnh:**
-  - Thay đổi thời gian xử lý luồng bằng cách chỉnh sửa WINDOW_DURATION trong application.py.
-  - Cập nhật mô hình học máy trong thư mục models nếu cần cải thiện độ chính xác.
-## Lưu ý
-- Đảm bảo bạn có quyền truy cập vào giao diện mạng (có thể cần chạy với sudo):
+- The interface displays processed network flows, including source IP, destination IP, port, predicted label, and probability.
+## Usage
+- **Real-time Monitoring:** The system continuously captures packets and predicts network behavior. Results are updated on the web interface.
+- **Post-analysis:** Review the predictions.csv file for a history of processed network flows.
+- **Customization:**
+  - Adjust the flow processing duration by modifying WINDOW_DURATION in application.py.
+  - Update the machine learning model in the models/ directory to improve accuracy.
+## Notes
+- Ensure you have sufficient permissions to access the network interface (may require sudo):
 ```bash
 sudo python3 application.py
 ```
-- Với lưu lượng mạng lớn, hệ thống có thể tiêu tốn CPU/memory. Cân nhắc điều chỉnh WINDOW_DURATION hoặc giới hạn lưu lượng.
-- Tệp predictions.csv được ghi ở chế độ thêm, vì vậy kích thước tệp sẽ tăng theo thời gian. Có thể cần xóa hoặc lưu trữ định kỳ.
-## Tác giả
+- For high network traffic, the system may consume significant CPU/memory. Consider adjusting WINDOW_DURATION or limiting traffic.
+- The predictions.csv file is appended to, so its size will grow over time. Periodically archive or delete it as needed.
+## Authors
 - **Công Quân**  
   Email: 22521190@gm.uit.edu.vn  
 - **Quốc Minh**  
   Email: 22520855@gm.uit.edu.vn
-  ## Giấy phép
-Dự án được phát triển trong khuôn khổ đề tài **Áp dụng các kỹ thuật học máy để phát hiện lưu lượng mạng độc hại trong điện toán đám mây**. Mã nguồn được cung cấp với mục đích học tập và nghiên cứu.
+  ## License
+This project was developed as part of the research topic **Applying Machine Learning Techniques to Detect Malicious Network Traffic in Cloud Computing.** The source code is provided for educational and research purposes.
 
 
