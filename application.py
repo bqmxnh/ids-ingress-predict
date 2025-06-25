@@ -3,17 +3,23 @@ import pandas as pd
 import numpy as np
 import joblib
 import time
+import logging
+import subprocess
 from sklearn.preprocessing import StandardScaler
-from flask import Flask, render_template, jsonify
+from flask import Flask, render_template
+from flask_socketio import SocketIO
 import threading
 from datetime import datetime
 
+# Setup logging
+logging.basicConfig(filename='ids.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
+
 # Flask app setup
 app = Flask(__name__)
+socketio = SocketIO(app)
 
 # Configuration
-INTERFACE = "ens33"  # Replace with your network interface
-WINDOW_DURATION = 2  # Window duration (seconds)
+INTERFACE = "ens33"
 MODEL_BINARY_FILE = "/home/bqmxnh/Desktop/IDS/models/best_binary_model.pkl"
 SCALER_FILE = "/home/bqmxnh/Desktop/IDS/models/scaler.pkl"
 LE_BINARY_FILE = "/home/bqmxnh/Desktop/IDS/models/label_encoder_binary.pkl"
@@ -21,23 +27,27 @@ OUTPUT_CSV = "predictions.csv"
 
 # In-memory storage for flow results
 flow_results = []
+flow_results_lock = threading.Lock()
+
+# Default timeouts and control variables
+active_timeout = 60
+idle_timeout = 10
+packet_thread = None
+stop_processing = False  # Flag to stop packet processing
 
 # Load models and components
 try:
     model_binary = joblib.load(MODEL_BINARY_FILE)
     scaler = joblib.load(SCALER_FILE)
     le_binary = joblib.load(LE_BINARY_FILE)
-    print("Loaded scikit-learn binary model and components")
+    logging.info("Loaded scikit-learn binary model and components")
 except Exception as e:
+    logging.error(f"Error loading model or components: {e}")
     print(f"Error loading model or components: {e}")
     exit(1)
 
 # Feature extraction function
 def extract_cicids2017_features(flow):
-    """
-    Extract features from an NFlow object corresponding to the provided column names.
-    Returns a list of features aligned with the column names.
-    """
     features = [
         flow.dst_port,
         flow.bidirectional_duration_ms / 1000,
@@ -139,49 +149,101 @@ def predict_features(features):
     binary_label = le_binary.inverse_transform([binary_pred])[0]
     return binary_label, binary_conf
 
-def process_real_time_packets():
-    streamer = nfstream.NFStreamer(
-        source=INTERFACE,
-        statistical_analysis=True,
-        accounting_mode=0,
-        idle_timeout=WINDOW_DURATION,
-        active_timeout=WINDOW_DURATION
-    )
-    for flow in streamer:
-        all_features = extract_cicids2017_features(flow)
-        binary_label, binary_conf = predict_features(all_features)
-        result = {
-            'src_ip': flow.src_ip,
-            'src_port': flow.src_port,
-            'dst_ip': flow.dst_ip,
-            'dst_port': flow.dst_port,
-            'binary_prediction': binary_label,
-            'binary_confidence': max(binary_conf) if binary_conf is not None else None,
-            'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        }
-        flow_results.append(result)
-        if len(flow_results) > 100:
-            flow_results.pop(0)
-        result_df = pd.DataFrame([result])
-        result_df.to_csv(OUTPUT_CSV, mode='a', index=False, header=not pd.io.common.file_exists(OUTPUT_CSV))
+def check_interface(interface):
+    try:
+        result = subprocess.run(['ip', 'link', 'show', interface], capture_output=True, text=True)
+        if result.returncode == 0:
+            logging.info(f"Interface {interface} is available")
+            return True
+        else:
+            logging.error(f"Interface {interface} not found")
+            return False
+    except Exception as e:
+        logging.error(f"Error checking interface {interface}: {e}")
+        return False
 
-# Flask routes
+def process_real_time_packets():
+    global stop_processing
+    while not stop_processing:
+        try:
+            logging.info("Starting real-time attack detection...")
+            if not check_interface(INTERFACE):
+                logging.error(f"Cannot proceed: Interface {INTERFACE} is not valid")
+                print(f"Error: Interface {INTERFACE} is not valid")
+                return
+
+            streamer = nfstream.NFStreamer(
+                source=INTERFACE,
+                statistical_analysis=True,
+                accounting_mode=1,
+                active_timeout=active_timeout,
+                idle_timeout=idle_timeout,
+                snapshot_length=65535
+            )
+            for flow in streamer:
+                if stop_processing:
+                    break
+                all_features = extract_cicids2017_features(flow)
+                binary_label, binary_conf = predict_features(all_features)
+                result = {
+                    'src_ip': flow.src_ip,
+                    'src_port': flow.src_port,
+                    'dst_ip': flow.dst_ip,
+                    'dst_port': flow.dst_port,
+                    'binary_prediction': binary_label,
+                    'binary_confidence': max(binary_conf) if binary_conf is not None else None,
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                }
+                with flow_results_lock:
+                    flow_results.append(result)
+                    if len(flow_results) > 1000:
+                        flow_results.pop(0)
+                socketio.emit('new_flow', result)
+                result_df = pd.DataFrame([result])
+                result_df.to_csv(OUTPUT_CSV, mode='a', index=False, header=not pd.io.common.file_exists(OUTPUT_CSV))
+                logging.info(f"Processed flow: {result['src_ip']}:{result['src_port']} -> {result['dst_ip']}:{result['dst_port']}")
+        except Exception as e:
+            logging.error(f"Error in packet processing: {e}")
+            print(f"Error in packet processing: {e}")
+            time.sleep(1)  # Wait before retrying
+
 @app.route('/')
 def index():
     return render_template('index.html')
 
-@app.route('/get_flows')
-def get_flows():
-    return jsonify(flow_results)
-
 def start_packet_processing():
+    process_real_time_packets()
+
+@socketio.on('update_timeout')
+def handle_timeout_update(data):
+    global active_timeout, idle_timeout, packet_thread, stop_processing
     try:
-        print("Starting real-time attack detection...")
-        process_real_time_packets()
+        new_active_timeout = int(data['active_timeout'])
+        new_idle_timeout = int(data['idle_timeout'])
+        if new_active_timeout < 1 or new_idle_timeout < 1:
+            logging.error("Timeout values must be positive integers")
+            return
+        active_timeout = new_active_timeout
+        idle_timeout = new_idle_timeout
+        logging.info(f"Updated timeouts: active_timeout={active_timeout}, idle_timeout={idle_timeout}")
+
+        # Stop existing packet processing
+        if packet_thread is not None and packet_thread.is_alive():
+            stop_processing = True
+            packet_thread.join(timeout=2)
+            with flow_results_lock:
+                flow_results.clear()
+            stop_processing = False
+
+        # Start new packet processing with updated timeouts
+        packet_thread = threading.Thread(target=start_packet_processing, daemon=True)
+        packet_thread.start()
+        socketio.emit('timeout_updated', {'active_timeout': active_timeout, 'idle_timeout': idle_timeout})
     except Exception as e:
-        print(f"Error: {e}")
+        logging.error(f"Error updating timeouts: {e}")
+        print(f"Error updating timeouts: {e}")
 
 if __name__ == "__main__":
     packet_thread = threading.Thread(target=start_packet_processing, daemon=True)
     packet_thread.start()
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    socketio.run(app, debug=True, host='0.0.0.0', port=5001)
