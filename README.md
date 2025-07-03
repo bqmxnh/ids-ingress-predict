@@ -37,7 +37,7 @@ sudo apt install python3 python3-pip
 ### 2. Install Required Libraries
 - Install the necessary Python libraries using:
 ```bash
-pip3 install nfstream pandas numpy joblib scikit-learn flask
+pip3 install nfstream pandas numpy joblib scikit-learn flask flask-socketio
 ```
 ### 3. Configure Network Interface
 - Open application.py and update the INTERFACE variable with your network interface (e.g., eth0, wlan0).
@@ -78,7 +78,7 @@ http://localhost:5001
 - **Real-time Monitoring:** The system continuously captures packets and predicts network behavior. Results are updated on the web interface.
 - **Post-analysis:** Review the predictions.csv file for a history of processed network flows.
 - **Customization:**
-  - Adjust the flow processing duration by modifying WINDOW_DURATION in application.py.
+  - Adjust the flow processing timeouts by modifying `active_timeout` and `idle_timeout` in `application.py`.
   - Update the machine learning model in the models/ directory to improve accuracy.
 ## Notes
 - Ensure you have sufficient permissions to access the network interface (may require sudo):
@@ -87,6 +87,13 @@ sudo python3 application.py
 ```
 - For high network traffic, the system may consume significant CPU/memory. Consider adjusting WINDOW_DURATION or limiting traffic.
 - The predictions.csv file is appended to, so its size will grow over time. Periodically archive or delete it as needed.
+### Web Interface Features
+- **Real-time Flow Table**: Displays network flows with details (Flow ID, Source/Destination IP, Ports, Predicted Label, Confidence, Timestamp, Age).
+- **Filtering**: Filter flows by type (All, Attacks Only, Benign Only).
+- **Chart Visualization**: Line chart showing the number of attack and benign flows over time using Chart.js.
+- **Export to CSV**: Download the displayed flows as a CSV file.
+- **Timeout Configuration**: Adjust `active_timeout` and `idle_timeout` directly from the interface.
+- **Pagination**: Navigate through flow history with a paginated table.
 ## Authors
 - **Công Quân**  
   Email: 22521190@gm.uit.edu.vn  
