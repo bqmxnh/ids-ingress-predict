@@ -29,7 +29,7 @@
         .authors {
             text-align: center;
             color: #6b7280;
-            font-size: calc(0.65em + 0.1vw); /* Adjusted to match footer font size */
+            font-size: calc(0.65em + 0.1vw);
             font-weight: 400;
         }
         .container {
@@ -321,7 +321,6 @@
             margin-bottom: 0.5rem;
             font-weight: 400;
         }
-        /* Animation for new flows */
         tr.new-flow td {
             animation: slideIn 0.4s ease-out;
         }
@@ -329,95 +328,32 @@
             from { opacity: 0; transform: translateX(-20px); }
             to { opacity: 1; transform: translateX(0); }
         }
-        /* Responsive design */
         @media (max-width: 1024px) {
-            .container {
-                width: 95%;
-            }
-            h1 {
-                font-size: calc(1.3em + 0.3vw);
-            }
-            .authors {
-                font-size: calc(0.7em + 0.1vw);
-            }
-            .chart-container {
-                height: 150px;
-                padding: 0.5rem;
-            }
-            table {
-                font-size: calc(9px + 0.2vw);
-            }
-            th, td {
-                padding: calc(3px + 0.2vw) calc(6px + 0.2vw);
-            }
-            .filter-button, .export-button, .apply-button {
-                padding: calc(3px + 0.2vw) calc(6px + 0.3vw);
-                font-size: calc(0.7em + 0.1vw);
-            }
-            .filter-option {
-                font-size: calc(0.6em + 0.1vw);
-            }
-            .timeout-controls input {
-                width: 45px;
-            }
+            .container { width: 95%; }
+            h1 { font-size: calc(1.3em + 0.3vw); }
+            .authors { font-size: calc(0.7em + 0.1vw); }
+            .chart-container { height: 150px; padding: 0.5rem; }
+            table { font-size: calc(9px + 0.2vw); }
+            th, td { padding: calc(3px + 0.2vw) calc(6px + 0.2vw); }
+            .filter-button, .export-button, .apply-button { padding: calc(3px + 0.2vw) calc(6px + 0.3vw); font-size: calc(0.7em + 0.1vw); }
+            .filter-option { font-size: calc(0.6em + 0.1vw); }
+            .timeout-controls input { width: 45px; }
         }
         @media (max-width: 768px) {
-            .container {
-                width: 98%;
-            }
-            .chart-container {
-                height: 130px;
-                padding: 0.4rem;
-            }
-            .control-panel {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.4rem;
-            }
-            .controls {
-                flex-direction: column;
-                gap: 0.4rem;
-                align-items: stretch;
-            }
-            .left-controls {
-                flex-direction: column;
-                gap: 0.4rem;
-                align-items: stretch;
-            }
-            .table-wrapper {
-                padding: 0.4rem;
-            }
-            table {
-                display: block;
-            }
-            th, td {
-                width: auto;
-                max-width: 100px;
-            }
-            tr {
-                display: block;
-            }
-            .filter-button, .export-button, .apply-button {
-                width: 100%;
-                max-width: 140px;
-            }
-            .filter-dropdown {
-                width: 100%;
-                right: 0;
-                transform: none;
-            }
-            .timeout-controls {
-                flex-direction: column;
-                align-items: stretch;
-                gap: 0.3rem;
-            }
-            .timeout-controls input {
-                width: 100%;
-                max-width: 90px;
-            }
-            .footer {
-                font-size: calc(0.6em + 0.1vw);
-            }
+            .container { width: 98%; }
+            .chart-container { height: 130px; padding: 0.4rem; }
+            .control-panel { flex-direction: column; align-items: stretch; gap: 0.4rem; }
+            .controls { flex-direction: column; gap: 0.4rem; align-items: stretch; }
+            .left-controls { flex-direction: column; gap: 0.4rem; align-items: stretch; }
+            .table-wrapper { padding: 0.4rem; }
+            table { display: block; }
+            th, td { width: auto; max-width: 100px; }
+            tr { display: block; }
+            .filter-button, .export-button, .apply-button { width: 100%; max-width: 140px; }
+            .filter-dropdown { width: 100%; right: 0; transform: none; }
+            .timeout-controls { flex-direction: column; align-items: stretch; gap: 0.3rem; }
+            .timeout-controls input { width: 100%; max-width: 90px; }
+            .footer { font-size: calc(0.6em + 0.1vw); }
         }
     </style>
 </head>
@@ -475,7 +411,7 @@
                 <p>Authors: Công Quân - Quốc Minh</p>
                 <p>Course: Môn Đồ án chuyên ngành</p>
             </div>
-            <p>Last updated: 05:47 PM +07, Saturday, May 31, 2025</p>
+            <p>Last updated: 02:14 PM +07, Wednesday, September 24, 2025</p>
         </div>
     </div>
 
@@ -490,13 +426,12 @@
         const attacksOnlyOption = document.getElementById('attacksOnlyOption');
         const benignOnlyOption = document.getElementById('benignOnlyOption');
         let flows = [];
-        let filterType = "ALL"; // Can be "ALL", "ATTACK", or "BENIGN"
+        let filterType = "ALL";
         let currentPage = 1;
         const flowsPerPage = 50;
         const maxPageButtons = 5;
         const animatedFlowIds = new Set();
 
-        // Chart data
         let chartData = {
             labels: [],
             attackCounts: [],
@@ -505,7 +440,6 @@
         const maxDataPoints = 10;
         let lastUpdateTime = null;
 
-        // Initialize Chart.js
         const ctx = document.getElementById('flowChart').getContext('2d');
         const flowChart = new Chart(ctx, {
             type: 'line',
@@ -519,7 +453,7 @@
                         backgroundColor: 'rgba(239, 68, 68, 0.2)',
                         fill: true,
                         tension: 0.4,
-                        hidden: false // Initially visible
+                        hidden: false
                     },
                     {
                         label: 'BENIGN',
@@ -528,7 +462,7 @@
                         backgroundColor: 'rgba(34, 197, 94, 0.2)',
                         fill: true,
                         tension: 0.4,
-                        hidden: false // Initially visible
+                        hidden: false
                     }
                 ]
             },
@@ -554,7 +488,6 @@
             }
         });
 
-        // Set initial selected filter option
         allFlowsOption.classList.add('selected');
 
         function toggleFilterDropdown() {
@@ -586,7 +519,6 @@
         });
 
         function updateChart(flow) {
-            // Apply filter to chart data
             if (filterType === "ATTACK" && flow.binary_prediction !== 'ATTACK') {
                 return;
             }
@@ -597,7 +529,6 @@
             const currentTime = new Date();
             const timeKey = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
 
-            // Update chart data only if time changes
             if (!lastUpdateTime || timeKey !== lastUpdateTime) {
                 if (chartData.labels.length >= maxDataPoints) {
                     chartData.labels.shift();
@@ -610,7 +541,6 @@
                 lastUpdateTime = timeKey;
             }
 
-            // Update the counts for the latest time slot based on filterType
             const lastIndex = chartData.labels.length - 1;
             if (filterType === "ALL") {
                 if (flow.binary_prediction === 'ATTACK') {
@@ -624,12 +554,9 @@
                 chartData.normalCounts[lastIndex]++;
             }
 
-            // Update the chart datasets
             flowChart.data.labels = chartData.labels;
             flowChart.data.datasets[0].data = chartData.attackCounts;
             flowChart.data.datasets[1].data = chartData.normalCounts;
-
-            // Smoothly update the chart
             flowChart.update('none');
         }
 
@@ -643,7 +570,6 @@
                 filteredFlows = flows.filter(f => f.binary_prediction === 'BENIGN');
             }
 
-            // Calculate pagination
             const totalFlows = filteredFlows.length;
             const totalPages = Math.ceil(totalFlows / flowsPerPage);
             currentPage = Math.min(currentPage, totalPages) || 1;
@@ -652,7 +578,6 @@
             const endIndex = startIndex + flowsPerPage;
             const pageFlows = filteredFlows.slice(startIndex, endIndex);
 
-            // Render flows for the current page
             pageFlows.forEach((flow, index) => {
                 const flowTime = new Date(flow.timestamp);
                 const age = (now - flowTime) / 1000;
@@ -679,7 +604,6 @@
                 tbody.appendChild(row);
             });
 
-            // Render pagination controls
             paginationDiv.innerHTML = '';
             const totalPagesToShow = Math.min(totalPages, maxPageButtons);
             let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
@@ -726,32 +650,43 @@
         }
 
         function exportToCSV() {
-            const now = new Date();
             let filteredFlows = flows;
             if (filterType === "ATTACK") {
                 filteredFlows = flows.filter(f => f.binary_prediction === 'ATTACK');
             } else if (filterType === "BENIGN") {
                 filteredFlows = flows.filter(f => f.binary_prediction === 'BENIGN');
             }
-            const csvRows = [
-                ['Flow ID', 'Source IP', 'Source Port', 'Destination IP', 'Destination Port', 'Prediction', 'Confidence', 'Timestamp', 'Age (s)']
+            const csvHeaders = [
+                'Destination Port', 'Flow Duration', 'Total Fwd Packets', 'Total Backward Packets',
+                'Total Length of Fwd Packets', 'Total Length of Bwd Packets', 'Fwd Packet Length Max',
+                'Fwd Packet Length Min', 'Fwd Packet Length Mean', 'Fwd Packet Length Std',
+                'Bwd Packet Length Max', 'Bwd Packet Length Min', 'Bwd Packet Length Mean',
+                'Bwd Packet Length Std', 'Flow Bytes/s', 'Flow Packets/s', 'Flow IAT Mean',
+                'Flow IAT Std', 'Flow IAT Max', 'Flow IAT Min', 'Fwd IAT Total', 'Fwd IAT Mean',
+                'Fwd IAT Std', 'Fwd IAT Max', 'Fwd IAT Min', 'Bwd IAT Total', 'Bwd IAT Mean',
+                'Bwd IAT Std', 'Bwd IAT Max', 'Bwd IAT Min', 'Fwd PSH Flags', 'Bwd PSH Flags',
+                'Fwd URG Flags', 'Bwd URG Flags', 'Fwd Header Length', 'Bwd Header Length',
+                'Fwd Packets/s', 'Bwd Packets/s', 'Min Packet Length', 'Max Packet Length',
+                'Packet Length Mean', 'Packet Length Std', 'Packet Length Variance', 'FIN Flag Count',
+                'SYN Flag Count', 'RST Flag Count', 'PSH Flag Count', 'ACK Flag Count', 'URG Flag Count',
+                'CWE Flag Count', 'ECE Flag Count', 'Down/Up Ratio', 'Average Packet Size',
+                'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Fwd Avg Bytes/Bulk',
+                'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk',
+                'Bwd Avg Bulk Rate', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets',
+                'Subflow Bwd Bytes', 'Init_Win_bytes_forward', 'Init_Win_bytes_backward',
+                'act_data_pkt_fwd', 'min_seg_size_forward', 'Active Mean', 'Active Std', 'Active Max',
+                'Active Min', 'Idle Mean', 'Idle Std', 'Idle Max', 'Idle Min', 'Label'
             ];
+            const csvRows = [csvHeaders];
 
             filteredFlows.forEach((flow) => {
-                const flowTime = new Date(flow.timestamp);
-                const age = (now - flowTime) / 1000;
-                const flowId = `${flow.src_ip}:${flow.src_port}-${flow.dst_ip}:${flow.dst_port}-${flow.timestamp}`;
-                csvRows.push([
-                    flowId,
-                    flow.src_ip,
-                    flow.src_port,
-                    flow.dst_ip,
-                    flow.dst_port,
-                    flow.binary_prediction,
-                    flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A',
-                    flow.timestamp,
-                    age.toFixed(1)
-                ]);
+                const row = [
+                    ...(flow.features || Array(csvHeaders.length - 1).fill(0)).map(val => 
+                        typeof val === 'number' ? val.toFixed(4) : (val || 0)
+                    ),
+                    flow.binary_prediction
+                ];
+                csvRows.push(row);
             });
 
             const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
@@ -782,9 +717,8 @@
             allFlowsOption.classList.add('selected');
             attacksOnlyOption.classList.remove('selected');
             benignOnlyOption.classList.remove('selected');
-            chartData = { labels: [], attackCounts: [], normalCounts: [] }; // Reset chart data
+            chartData = { labels: [], attackCounts: [], normalCounts: [] };
             lastUpdateTime = null;
-            // Show both datasets
             flowChart.data.datasets[0].hidden = false;
             flowChart.data.datasets[1].hidden = false;
             flows.forEach(flow => updateChart(flow));
@@ -802,9 +736,8 @@
             allFlowsOption.classList.remove('selected');
             attacksOnlyOption.classList.add('selected');
             benignOnlyOption.classList.remove('selected');
-            chartData = { labels: [], attackCounts: [], normalCounts: [] }; // Reset chart data
+            chartData = { labels: [], attackCounts: [], normalCounts: [] };
             lastUpdateTime = null;
-            // Show only ATTACK dataset (red line), hide BENIGN (green line)
             flowChart.data.datasets[0].hidden = false;
             flowChart.data.datasets[1].hidden = true;
             flows.forEach(flow => updateChart(flow));
@@ -822,9 +755,8 @@
             allFlowsOption.classList.remove('selected');
             attacksOnlyOption.classList.remove('selected');
             benignOnlyOption.classList.add('selected');
-            chartData = { labels: [], attackCounts: [], normalCounts: [] }; // Reset chart data
+            chartData = { labels: [], attackCounts: [], normalCounts: [] };
             lastUpdateTime = null;
-            // Show only BENIGN dataset (green line), hide ATTACK (red line)
             flowChart.data.datasets[0].hidden = true;
             flowChart.data.datasets[1].hidden = false;
             flows.forEach(flow => updateChart(flow));
@@ -835,7 +767,6 @@
             renderFlows();
         }
 
-        // Update age every second
         setInterval(renderFlows, 1000);
     </script>
 </body>

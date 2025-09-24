@@ -20,9 +20,9 @@ socketio = SocketIO(app)
 
 # Configuration
 INTERFACE = "ens33"
-MODEL_BINARY_FILE = "/home/bqmxnh/Desktop/IDS/models/best_binary_model.pkl"
-SCALER_FILE = "/home/bqmxnh/Desktop/IDS/models/scaler.pkl"
-LE_BINARY_FILE = "/home/bqmxnh/Desktop/IDS/models/label_encoder_binary.pkl"
+MODEL_BINARY_FILE = "/home/bqmxnh/Desktop/demo/IDS/models/best_binary_model.pkl"
+SCALER_FILE = "/home/bqmxnh/Desktop/demo/IDS/models/scaler.pkl"
+LE_BINARY_FILE = "/home/bqmxnh/Desktop/demo/IDS/models/label_encoder_binary.pkl"
 OUTPUT_CSV = "predictions.csv"
 
 # In-memory storage for flow results
@@ -192,14 +192,21 @@ def process_real_time_packets():
                     'dst_port': flow.dst_port,
                     'binary_prediction': binary_label,
                     'binary_confidence': max(binary_conf) if binary_conf is not None else None,
-                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    'timestamp': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+                    'features': all_features  # Include features for frontend
                 }
                 with flow_results_lock:
                     flow_results.append(result)
                     if len(flow_results) > 1000:
                         flow_results.pop(0)
                 socketio.emit('new_flow', result)
-                result_df = pd.DataFrame([result])
+                # Prepare result for CSV with only CICIDS2017_COLUMNS and Label
+                result_dict = {
+                    col_name: feature_value if isinstance(feature_value, (int, float)) else 0
+                    for col_name, feature_value in zip(CICIDS2017_COLUMNS, all_features)
+                }
+                result_dict['Label'] = binary_label
+                result_df = pd.DataFrame([result_dict])
                 result_df.to_csv(OUTPUT_CSV, mode='a', index=False, header=not pd.io.common.file_exists(OUTPUT_CSV))
                 logging.info(f"Processed flow: {result['src_ip']}:{result['src_port']} -> {result['dst_ip']}:{result['dst_port']}")
         except Exception as e:
