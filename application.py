@@ -10,6 +10,8 @@ from flask import Flask, render_template
 from flask_socketio import SocketIO
 import threading
 from datetime import datetime
+from pathlib import Path
+import os
 
 # Setup logging
 logging.basicConfig(filename='ids.log', level=logging.DEBUG, format='%(asctime)s %(levelname)s: %(message)s')
@@ -20,10 +22,20 @@ socketio = SocketIO(app)
 
 # Configuration
 INTERFACE = "ens33"
-MODEL_BINARY_FILE = "/home/bqmxnh/Desktop/demo/IDS/models/best_binary_model.pkl"
-SCALER_FILE = "/home/bqmxnh/Desktop/demo/IDS/models/scaler.pkl"
-LE_BINARY_FILE = "/home/bqmxnh/Desktop/demo/IDS/models/label_encoder_binary.pkl"
-OUTPUT_CSV = "predictions.csv"
+
+# Define base directory as the directory where the script is located
+BASE_DIR = Path(__file__).resolve().parent
+MODELS_DIR = BASE_DIR / "models"
+OUTPUT_DIR = BASE_DIR / "data"
+
+# Define file names
+MODEL_BINARY_FILE = "best_binary_model.pkl"
+SCALER_FILE = "scaler.pkl"
+LE_BINARY_FILE = "label_encoder_binary.pkl"
+OUTPUT_CSV = OUTPUT_DIR / "predictions.csv"
+
+# Ensure output directory exists
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 # In-memory storage for flow results
 flow_results = []
@@ -35,15 +47,26 @@ idle_timeout = 10
 packet_thread = None
 stop_processing = False  # Flag to stop packet processing
 
+# Function to find a file in a directory
+def find_file(directory, filename):
+    file_path = directory / filename
+    if file_path.exists():
+        return file_path
+    raise FileNotFoundError(f"File {filename} not found in {directory}")
+
 # Load models and components
 try:
-    model_binary = joblib.load(MODEL_BINARY_FILE)
-    scaler = joblib.load(SCALER_FILE)
-    le_binary = joblib.load(LE_BINARY_FILE)
+    model_binary = joblib.load(find_file(MODELS_DIR, MODEL_BINARY_FILE))
+    scaler = joblib.load(find_file(MODELS_DIR, SCALER_FILE))
+    le_binary = joblib.load(find_file(MODELS_DIR, LE_BINARY_FILE))
     logging.info("Loaded scikit-learn binary model and components")
-except Exception as e:
+except FileNotFoundError as e:
     logging.error(f"Error loading model or components: {e}")
-    print(f"Error loading model or components: {e}")
+    print(f"Error: {e}")
+    exit(1)
+except Exception as e:
+    logging.error(f"Unexpected error loading model or components: {e}")
+    print(f"Unexpected error: {e}")
     exit(1)
 
 # Feature extraction function
@@ -207,7 +230,7 @@ def process_real_time_packets():
                 }
                 result_dict['Label'] = binary_label
                 result_df = pd.DataFrame([result_dict])
-                result_df.to_csv(OUTPUT_CSV, mode='a', index=False, header=not pd.io.common.file_exists(OUTPUT_CSV))
+                result_df.to_csv(OUTPUT_CSV, mode='a', index=False, header=not OUTPUT_CSV.exists())
                 logging.info(f"Processed flow: {result['src_ip']}:{result['src_port']} -> {result['dst_ip']}:{result['dst_port']}")
         except Exception as e:
             logging.error(f"Error in packet processing: {e}")
