@@ -367,3 +367,33 @@
 2025-10-05 14:37:03,477 INFO: Processed flow: 192.168.171.1:65084 -> 224.0.0.252:5355
 2025-10-05 14:37:03,546 INFO: Processed flow: fe80::4924:7fbd:3e29:f799:49345 -> ff02::1:3:5355
 2025-10-05 14:37:03,579 INFO: Processed flow: 192.168.171.1:49345 -> 224.0.0.252:5355
+2025-10-05 14:40:45,060 INFO: Loaded scikit-learn binary model and components
+2025-10-05 14:40:45,061 INFO: Starting real-time attack detection...
+2025-10-05 14:40:45,064 INFO: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.171.130:5001
+2025-10-05 14:40:45,065 INFO: [33mPress CTRL+C to quit[0m
+2025-10-05 14:40:45,065 INFO:  * Restarting with stat
+2025-10-05 14:40:45,065 INFO: Interface ens33 is available
+2025-10-05 14:40:45,949 INFO: Loaded scikit-learn binary model and components
+2025-10-05 14:40:45,950 INFO: Starting real-time attack detection...
+2025-10-05 14:40:45,953 INFO: Interface ens33 is available
+2025-10-05 14:40:45,954 WARNING:  * Debugger is active!
+2025-10-05 14:40:45,964 INFO:  * Debugger PIN: 652-462-648
+2025-10-05 14:40:45,988 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:45] "GET /socket.io/?EIO=4&transport=polling&t=PcpJxf1 HTTP/1.1" 200 -
+2025-10-05 14:40:46,019 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:46] "POST /socket.io/?EIO=4&transport=polling&t=PcpJyrX&sid=4r8dCsAwKutVFj6PAAAA HTTP/1.1" 200 -
+2025-10-05 14:40:46,022 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:46] "GET /socket.io/?EIO=4&transport=polling&t=PcpJyrZ&sid=4r8dCsAwKutVFj6PAAAA HTTP/1.1" 200 -
+2025-10-05 14:40:50,962 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:50] "GET /socket.io/?EIO=4&transport=websocket&sid=4r8dCsAwKutVFj6PAAAA HTTP/1.1" 200 -
+2025-10-05 14:40:50,973 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:50] "GET / HTTP/1.1" 200 -
+2025-10-05 14:40:51,100 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:51] "GET /socket.io/?EIO=4&transport=polling&t=PcpJ-56 HTTP/1.1" 200 -
+2025-10-05 14:40:51,123 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:51] "POST /socket.io/?EIO=4&transport=polling&t=PcpJ-5R&sid=DTRQtbcppC-H4zv5AAAC HTTP/1.1" 200 -
+2025-10-05 14:40:51,125 INFO: 192.168.171.1 - - [05/Oct/2025 14:40:51] "GET /socket.io/?EIO=4&transport=polling&t=PcpJ-5S&sid=DTRQtbcppC-H4zv5AAAC HTTP/1.1" 200 -
+2025-10-05 14:40:57,289 INFO: Processed flow: 192.168.171.130:5001 -> 192.168.171.1:51599
+2025-10-05 14:40:57,331 INFO: Processed flow: 192.168.171.1:60056 -> 192.168.171.130:5001
+2025-10-05 14:40:57,486 INFO: Processed flow: 192.168.171.1:51599 -> 192.168.171.130:5001
+2025-10-05 14:40:57,527 INFO: Processed flow: 192.168.171.1:60056 -> 192.168.171.130:5001
+2025-10-05 14:41:02,593 INFO: Processed flow: 192.168.171.1:54976 -> 192.168.171.130:5001
+2025-10-05 14:41:02,633 INFO: Processed flow: 192.168.171.1:56642 -> 192.168.171.130:5001
+2025-10-05 14:41:03,428 INFO: Processed flow: 192.168.171.1:54976 -> 192.168.171.130:5001
+2025-10-05 14:41:03,467 INFO: Processed flow: 192.168.171.1:56642 -> 192.168.171.130:5001
