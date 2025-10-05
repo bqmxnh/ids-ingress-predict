@@ -3,128 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Traffic Analysis</title>
-    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <title>Network Traffic Analysis Dashboard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <style>
         body {
-            font-family: 'Montserrat', sans-serif;
-            margin: 0;
-            min-height: 100vh;
-            background: linear-gradient(to bottom, #e0f7fa 0%, #f9fafb 100%);
-            color: #1f2937;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow-x: hidden;
-            font-weight: 400;
-            font-size: calc(11px + 0.2vw);
-        }
-        h1 {
-            text-align: center;
-            color: #1d4ed8;
-            font-size: calc(1.4em + 0.4vw);
-            margin: 0.8rem 0;
-            font-weight: 700;
-        }
-        .authors {
-            text-align: center;
-            color: #6b7280;
-            font-size: calc(0.65em + 0.1vw);
-            font-weight: 400;
-        }
-        .container {
-            width: 90%;
-            max-width: 1000px;
-            margin: 0 auto;
-        }
-        .chart-container {
-            width: 100%;
-            height: 160px;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(8px);
-            border-radius: 8px;
-            padding: 0.6rem;
-            margin: 0.8rem 0;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            overflow: hidden;
-            z-index: 1;
-        }
-        .control-panel {
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(8px);
-            border-radius: 8px;
-            padding: 0.6rem;
-            margin: 0.8rem 0;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            position: relative;
-            z-index: 500;
-        }
-        .table-wrapper {
-            position: relative;
-            width: 100%;
-            max-width: 100%;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(8px);
-            border-radius: 8px;
-            padding: 0.6rem;
-            margin: 0.8rem 0;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-            overflow-x: auto;
-            overflow-y: hidden;
-            z-index: 1;
-        }
-        table {
-            width: 100%;
-            max-width: 100%;
-            border-collapse: separate;
-            border-spacing: 8px 8px;
-            background: transparent;
-            table-layout: auto;
-        }
-        thead {
-            position: sticky;
-            top: 0;
-            background: rgba(255, 255, 255, 0.9);
-            z-index: 2;
-        }
-        th, td {
-            padding: calc(4px + 0.2vw) calc(8px + 0.3vw);
-            text-align: center;
-            vertical-align: middle;
-            background: #eff6ff;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            white-space: normal;
-            overflow-wrap: break-word;
-            font-size: calc(10px + 0.15vw);
-        }
-        th {
-            background: #3b82f6;
-            color: #ffffff;
-            font-size: calc(0.6em + 0.1vw);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        td {
-            background: rgba(239, 246, 255, 0.9);
-            backdrop-filter: blur(4px);
-            font-family: 'Montserrat', sans-serif;
-            font-weight: 400;
-            color: #1f2937;
-            cursor: pointer;
-        }
-        tr {
-            display: table-row;
-            transition: transform 0.2s ease;
-        }
-        tr:hover td {
-            background: #dbeafe;
-            transform: translateY(-1px);
+            font-family: 'Inter', sans-serif;
         }
         .attack {
             color: #ef4444;
@@ -132,304 +17,123 @@
         }
         .normal {
             color: #22c55e;
-        }
-        .controls {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            width: 100%;
-            gap: 0.5rem;
-        }
-        .left-controls {
-            display: flex;
-            gap: 0.5rem;
-            align-items: center;
-        }
-        .filter-wrapper {
-            position: relative;
-            display: inline-block;
-        }
-        .filter-button {
-            padding: calc(4px + 0.2vw) calc(8px + 0.3vw);
-            background: #3b82f6;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(0.6em + 0.1vw);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: background 0.2s ease, transform 0.2s ease;
-            white-space: nowrap;
-        }
-        .filter-button:hover {
-            background: #1d4ed8;
-            transform: translateY(-2px);
-        }
-        .filter-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            background: rgba(255, 255, 255, 0.9);
-            backdrop-filter: blur(8px);
-            border-radius: 6px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
-            z-index: 600;
-            min-width: 120px;
-        }
-        .filter-dropdown.show {
-            display: block;
-        }
-        .filter-option {
-            padding: calc(4px + 0.2vw) calc(8px + 0.3vw);
-            color: #1f2937;
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(10px + 0.15vw);
-            font-weight: 400;
-            transition: background 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 0.4rem;
-        }
-        .filter-option:hover {
-            background: #dbeafe;
-        }
-        .filter-option.selected::before {
-            content: '✔';
-            color: #3b82f6;
-            font-weight: 700;
-        }
-        .export-button {
-            padding: calc(4px + 0.2vw) calc(8px + 0.3vw);
-            background: #3b82f6;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(0.6em + 0.1vw);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: background 0.2s ease, transform 0.2s ease;
-            white-space: nowrap;
-        }
-        .export-button:hover {
-            background: #1d4ed8;
-            transform: translateY(-2px);
-        }
-        .timeout-controls {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            flex-wrap: nowrap;
-        }
-        .timeout-controls label {
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(10px + 0.15vw);
-            font-weight: 400;
-            color: #1f2937;
-            white-space: nowrap;
-        }
-        .timeout-controls input {
-            width: 55px;
-            padding: calc(3px + 0.1vw);
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(10px + 0.15vw);
-            font-weight: 400;
-            border: 1px solid #d1d5db;
-            border-radius: 4px;
-            text-align: center;
-        }
-        .timeout-controls input:focus {
-            outline: none;
-            border-color: #3b82f6;
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
-        }
-        .apply-button {
-            padding: calc(4px + 0.2vw) calc(8px + 0.3vw);
-            background: #3b82f6;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(0.6em + 0.1vw);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: background 0.2s ease, transform 0.2s ease;
-            white-space: nowrap;
-        }
-        .apply-button:hover {
-            background: #1d4ed8;
-            transform: translateY(-2px);
-        }
-        .pagination {
-            text-align: center;
-            margin: 0.8rem 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 0.3rem;
-        }
-        .pagination button {
-            padding: calc(4px + 0.2vw) calc(6px + 0.3vw);
-            background: #3b82f6;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-            cursor: pointer;
-            font-family: 'Montserrat', sans-serif;
-            font-size: calc(0.6em + 0.1vw);
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            transition: background 0.2s ease, transform 0.2s ease;
-        }
-        .pagination button.active {
-            background: #1d4ed8;
             font-weight: 600;
         }
-        .pagination button:disabled {
-            background: #d1d5db;
-            cursor: not-allowed;
-        }
-        .pagination button:hover:not(:disabled) {
-            background: #1d4ed8;
-            transform: translateY(-2px);
-        }
-        .pagination span {
-            font-size: calc(0.75em + 0.1vw);
-            color: #1d4ed8;
-            margin: 0 0.4rem;
-            font-weight: 400;
-        }
-        .footer {
-            text-align: center;
-            color: #6b7280;
-            font-size: calc(0.65em + 0.1vw);
-            margin-top: 0.8rem;
-            margin-bottom: 0.5rem;
-            font-weight: 400;
-        }
-        tr.new-flow td {
+        .new-flow td {
             animation: slideIn 0.4s ease-out;
         }
         @keyframes slideIn {
             from { opacity: 0; transform: translateX(-20px); }
             to { opacity: 1; transform: translateX(0); }
         }
-        @media (max-width: 1024px) {
-            .container { width: 95%; }
-            h1 { font-size: calc(1.3em + 0.3vw); }
-            .authors { font-size: calc(0.7em + 0.1vw); }
-            .chart-container { height: 150px; padding: 0.5rem; }
-            table { font-size: calc(9px + 0.2vw); }
-            th, td { padding: calc(3px + 0.2vw) calc(6px + 0.2vw); }
-            .filter-button, .export-button, .apply-button { padding: calc(3px + 0.2vw) calc(6px + 0.3vw); font-size: calc(0.7em + 0.1vw); }
-            .filter-option { font-size: calc(0.6em + 0.1vw); }
-            .timeout-controls input { width: 45px; }
+        .filter-dropdown {
+            transition: opacity 0.2s ease, transform 0.2s ease;
         }
-        @media (max-width: 768px) {
-            .container { width: 98%; }
-            .chart-container { height: 130px; padding: 0.4rem; }
-            .control-panel { flex-direction: column; align-items: stretch; gap: 0.4rem; }
-            .controls { flex-direction: column; gap: 0.4rem; align-items: stretch; }
-            .left-controls { flex-direction: column; gap: 0.4rem; align-items: stretch; }
-            .table-wrapper { padding: 0.4rem; }
-            table { display: block; }
-            th, td { width: auto; max-width: 100px; }
-            tr { display: block; }
-            .filter-button, .export-button, .apply-button { width: 100%; max-width: 140px; }
-            .filter-dropdown { width: 100%; right: 0; transform: none; }
-            .timeout-controls { flex-direction: column; align-items: stretch; gap: 0.3rem; }
-            .timeout-controls input { width: 100%; max-width: 90px; }
-            .footer { font-size: calc(0.6em + 0.1vw); }
+        .filter-dropdown.hidden {
+            opacity: 0;
+            transform: translateY(-10px);
+            pointer-events: none;
         }
     </style>
 </head>
-<body>
-    <div class="container">
-        <h1>Real-Time Network Traffic Analysis</h1>
-        <div class="control-panel">
-            <div class="controls">
-                <div class="left-controls">
-                    <div class="filter-wrapper">
-                        <button class="filter-button" onclick="toggleFilterDropdown()">Filter</button>
-                        <div class="filter-dropdown" id="filterDropdown">
-                            <div class="filter-option" id="allFlowsOption" onclick="showAllFlows()">All Flows</div>
-                            <div class="filter-option" id="attacksOnlyOption" onclick="showAttacksOnly()">Attacks Only</div>
-                            <div class="filter-option" id="benignOnlyOption" onclick="showBenignOnly()">Benign Only</div>
-                        </div>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+        <!-- Header -->
+        <header class="mb-6 text-center">
+            <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+                Network Traffic Analysis Dashboard
+            </h1>
+            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+                Real-time monitoring and analysis of network flows
+            </p>
+        </header>
+
+        <!-- Control Panel -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
+                <div class="relative">
+                    <button onclick="toggleFilterDropdown()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+                        Filter
+                    </button>
+                    <div id="filterDropdown" class="filter-dropdown hidden absolute mt-2 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50">
+                        <div class="filter-option px-4 py-2 hover:bg-indigo-100 dark:hover:bg-gray-700 cursor-pointer text-sm" id="allFlowsOption" onclick="showAllFlows()">All Flows</div>
+                        <div class="filter-option px-4 py-2 hover:bg-indigo-100 dark:hover:bg-gray-700 cursor-pointer text-sm" id="attacksOnlyOption" onclick="showAttacksOnly()">Attacks Only</div>
+                        <div class="filter-option px-4 py-2 hover:bg-indigo-100 dark:hover:bg-gray-700 cursor-pointer text-sm" id="benignOnlyOption" onclick="showBenignOnly()">Benign Only</div>
                     </div>
-                    <button class="export-button" onclick="exportToCSV()">Export to CSV</button>
                 </div>
-                <div class="timeout-controls">
-                    <label>Active Timeout (s):</label>
-                    <input type="number" id="activeTimeout" min="1" value="60">
-                    <label>Idle Timeout (s):</label>
-                    <input type="number" id="idleTimeout" min="1" value="10">
-                    <button class="apply-button" onclick="updateTimeouts()">Apply Changes</button>
+                <button onclick="exportToCSV()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+                    Export to CSV
+                </button>
+                <button onclick="exportToJSON()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+                    Export to JSON
+                </button>
+            </div>
+            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full sm:w-auto">
+                <div class="flex items-center gap-2">
+                    <label for="activeTimeout" class="text-sm font-medium text-gray-700 dark:text-gray-300">Active Timeout (s):</label>
+                    <input type="number" id="activeTimeout" min="1" value="60" class="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
                 </div>
+                <div class="flex items-center gap-2">
+                    <label for="idleTimeout" class="text-sm font-medium text-gray-700 dark:text-gray-300">Idle Timeout (s):</label>
+                    <input type="number" id="idleTimeout" min="1" value="10" class="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
+                </div>
+                <button onclick="updateTimeouts()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
+                    Apply Changes
+                </button>
             </div>
         </div>
-        <div class="chart-container">
-            <canvas id="flowChart"></canvas>
+
+        <!-- Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+            <canvas id="flowChart" class="w-full h-64"></canvas>
         </div>
-        <div class="table-wrapper">
-            <table id="flowTable">
+
+        <!-- Table -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
+            <table id="flowTable" class="w-full border-collapse">
                 <thead>
-                    <tr>
-                        <th>Flow ID</th>
-                        <th>Source IP</th>
-                        <th>Source Port</th>
-                        <th>Destination IP</th>
-                        <th>Destination Port</th>
-                        <th>Prediction</th>
-                        <th>Confidence</th>
-                        <th>Timestamp</th>
-                        <th>Age (s)</th>
+                    <tr class="bg-indigo-600 text-white text-sm uppercase">
+                        <th class="p-3 text-left">Flow ID</th>
+                        <th class="p-3 text-left">Source IP</th>
+                        <th class="p-3 text-left">Source Port</th>
+                        <th class="p-3 text-left">Destination IP</th>
+                        <th class="p-3 text-left">Destination Port</th>
+                        <th class="p-3 text-left">Prediction</th>
+                        <th class="p-3 text-left">Confidence</th>
+                        <th class="p-3 text-left">Timestamp</th>
+                        <th class="p-3 text-left">Age (s)</th>
                     </tr>
                 </thead>
                 <tbody id="flowBody"></tbody>
             </table>
-            <div class="pagination" id="pagination">
-                <span id="pageInfo">Page 1</span>
+            <div class="flex justify-center items-center gap-2 mt-4">
+                <button id="prevPage" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 text-sm">Previous</button>
+                <span id="pageInfo" class="text-sm text-gray-700 dark:text-gray-300">Page 1</span>
+                <button id="nextPage" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 text-sm">Next</button>
             </div>
         </div>
-        <div class="footer">
-            <div class="authors">
-                <p>Authors: Công Quân - Quốc Minh</p>
-                <p>Course: Môn Đồ án chuyên ngành</p>
-            </div>
-            <p>Last updated: 02:14 PM +07, Wednesday, September 24, 2025</p>
-        </div>
+
+        <!-- Footer -->
+        <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+            <p>Authors: Công Quân - Quốc Minh</p>
+            <p>Course: Môn Đồ án chuyên ngành</p>
+            <p>Last updated: 02:31 PM +07, Sunday, October 05, 2025</p>
+        </footer>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
     <script>
         const socket = io();
         const tbody = document.getElementById('flowBody');
-        const paginationDiv = document.getElementById('pagination');
         const filterDropdown = document.getElementById('filterDropdown');
         const allFlowsOption = document.getElementById('allFlowsOption');
         const attacksOnlyOption = document.getElementById('attacksOnlyOption');
         const benignOnlyOption = document.getElementById('benignOnlyOption');
+        const prevPage = document.getElementById('prevPage');
+        const nextPage = document.getElementById('nextPage');
         let flows = [];
         let filterType = "ALL";
         let currentPage = 1;
         const flowsPerPage = 50;
-        const maxPageButtons = 5;
         const animatedFlowIds = new Set();
 
         let chartData = {
@@ -471,32 +175,32 @@
                 maintainAspectRatio: false,
                 scales: {
                     x: {
-                        title: { display: true, text: 'Time', color: '#1f2937', font: { family: 'Montserrat', size: 11, weight: '500' } },
-                        ticks: { color: '#1f2937', font: { family: 'Montserrat', size: 9 } }
+                        title: { display: true, text: 'Time', color: '#4b5563', font: { family: 'Inter', size: 12, weight: '500' } },
+                        ticks: { color: '#4b5563', font: { family: 'Inter', size: 10 } }
                     },
                     y: {
-                        title: { display: true, text: 'Number of Flows', color: '#1f2937', font: { family: 'Montserrat', size: 11, weight: '500' } },
-                        ticks: { color: '#1f2937', font: { family: 'Montserrat', size: 9 } },
+                        title: { display: true, text: 'Number of Flows', color: '#4b5563', font: { family: 'Inter', size: 12, weight: '500' } },
+                        ticks: { color: '#4b5563', font: { family: 'Inter', size: 10 } },
                         beginAtZero: true
                     }
                 },
                 plugins: {
                     legend: {
-                        labels: { color: '#1f2937', font: { family: 'Montserrat', size: 9 } }
+                        labels: { color: '#4b5563', font: { family: 'Inter', size: 10 } }
                     }
                 }
             }
         });
 
-        allFlowsOption.classList.add('selected');
+        allFlowsOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
 
         function toggleFilterDropdown() {
-            filterDropdown.classList.toggle('show');
+            filterDropdown.classList.toggle('hidden');
         }
 
         document.addEventListener('click', function(event) {
-            if (!event.target.closest('.filter-wrapper')) {
-                filterDropdown.classList.remove('show');
+            if (!event.target.closest('.relative')) {
+                filterDropdown.classList.add('hidden');
             }
         });
 
@@ -583,6 +287,7 @@
                 const age = (now - flowTime) / 1000;
                 const flowId = `${flow.src_ip}:${flow.src_port}-${flow.dst_ip}:${flow.dst_port}-${flow.timestamp}`;
                 const row = document.createElement('tr');
+                row.className = 'hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors';
 
                 if (!animatedFlowIds.has(flowId) && currentPage === 1 && index === 0) {
                     row.classList.add('new-flow');
@@ -591,60 +296,33 @@
                 }
 
                 row.innerHTML = `
-                    <td title="${flowId}">${flowId}</td>
-                    <td title="${flow.src_ip}">${flow.src_ip}</td>
-                    <td title="${flow.src_port}">${flow.src_port}</td>
-                    <td title="${flow.dst_ip}">${flow.dst_ip}</td>
-                    <td title="${flow.dst_port}">${flow.dst_port}</td>
-                    <td title="${flow.binary_prediction}" class="${flow.binary_prediction === 'ATTACK' ? 'attack' : 'normal'}">${flow.binary_prediction}</td>
-                    <td title="${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A'}">${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A'}</td>
-                    <td title="${flow.timestamp}">${flow.timestamp}</td>
-                    <td title="${age.toFixed(1)}">${age.toFixed(1)}</td>
+                    <td class="p-3 text-sm text-left">${flowId}</td>
+                    <td class="p-3 text-sm text-left">${flow.src_ip}</td>
+                    <td class="p-3 text-sm text-left">${flow.src_port}</td>
+                    <td class="p-3 text-sm text-left">${flow.dst_ip}</td>
+                    <td class="p-3 text-sm text-left">${flow.dst_port}</td>
+                    <td class="p-3 text-sm text-left ${flow.binary_prediction === 'ATTACK' ? 'attack' : 'normal'}">${flow.binary_prediction}</td>
+                    <td class="p-3 text-sm text-left">${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A'}</td>
+                    <td class="p-3 text-sm text-left">${flow.timestamp}</td>
+                    <td class="p-3 text-sm text-left">${age.toFixed(1)}</td>
                 `;
                 tbody.appendChild(row);
             });
 
-            paginationDiv.innerHTML = '';
-            const totalPagesToShow = Math.min(totalPages, maxPageButtons);
-            let startPage = Math.max(1, currentPage - Math.floor(maxPageButtons / 2));
-            let endPage = Math.min(totalPages, startPage + totalPagesToShow - 1);
-
-            if (endPage - startPage + 1 < totalPagesToShow) {
-                startPage = Math.max(1, endPage - totalPagesToShow + 1);
-            }
-
-            const prevButton = document.createElement('button');
-            prevButton.textContent = 'Previous';
-            prevButton.disabled = currentPage === 1;
-            prevButton.onclick = () => {
+            prevPage.disabled = currentPage === 1;
+            nextPage.disabled = currentPage === totalPages || totalPages === 0;
+            prevPage.onclick = () => {
                 if (currentPage > 1) {
                     currentPage--;
                     renderFlows();
                 }
             };
-            paginationDiv.appendChild(prevButton);
-
-            for (let i = startPage; i <= endPage; i++) {
-                const pageButton = document.createElement('button');
-                pageButton.textContent = i;
-                pageButton.className = i === currentPage ? 'active' : '';
-                pageButton.onclick = () => {
-                    currentPage = i;
-                    renderFlows();
-                };
-                paginationDiv.appendChild(pageButton);
-            }
-
-            const nextButton = document.createElement('button');
-            nextButton.textContent = 'Next';
-            nextButton.disabled = currentPage === totalPages || totalPages === 0;
-            nextButton.onclick = () => {
+            nextPage.onclick = () => {
                 if (currentPage < totalPages) {
                     currentPage++;
                     renderFlows();
                 }
             };
-            paginationDiv.appendChild(nextButton);
 
             document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages || 1}`;
         }
@@ -702,6 +380,57 @@
             URL.revokeObjectURL(url);
         }
 
+        function exportToJSON() {
+            let filteredFlows = flows;
+            if (filterType === "ATTACK") {
+                filteredFlows = flows.filter(f => f.binary_prediction === 'ATTACK');
+            } else if (filterType === "BENIGN") {
+                filteredFlows = flows.filter(f => f.binary_prediction === 'BENIGN');
+            }
+            const csvHeaders = [
+                'Destination Port', 'Flow Duration', 'Total Fwd Packets', 'Total Backward Packets',
+                'Total Length of Fwd Packets', 'Total Length of Bwd Packets', 'Fwd Packet Length Max',
+                'Fwd Packet Length Min', 'Fwd Packet Length Mean', 'Fwd Packet Length Std',
+                'Bwd Packet Length Max', 'Bwd Packet Length Min', 'Bwd Packet Length Mean',
+                'Bwd Packet Length Std', 'Flow Bytes/s', 'Flow Packets/s', 'Flow IAT Mean',
+                'Flow IAT Std', 'Flow IAT Max', 'Flow IAT Min', 'Fwd IAT Total', 'Fwd IAT Mean',
+                'Fwd IAT Std', 'Fwd IAT Max', 'Fwd IAT Min', 'Bwd IAT Total', 'Bwd IAT Mean',
+                'Bwd IAT Std', 'Bwd IAT Max', 'Bwd IAT Min', 'Fwd PSH Flags', 'Bwd PSH Flags',
+                'Fwd URG Flags', 'Bwd URG Flags', 'Fwd Header Length', 'Bwd Header Length',
+                'Fwd Packets/s', 'Bwd Packets/s', 'Min Packet Length', 'Max Packet Length',
+                'Packet Length Mean', 'Packet Length Std', 'Packet Length Variance', 'FIN Flag Count',
+                'SYN Flag Count', 'RST Flag Count', 'PSH Flag Count', 'ACK Flag Count', 'URG Flag Count',
+                'CWE Flag Count', 'ECE Flag Count', 'Down/Up Ratio', 'Average Packet Size',
+                'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Fwd Avg Bytes/Bulk',
+                'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk',
+                'Bwd Avg Bulk Rate', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets',
+                'Subflow Bwd Bytes', 'Init_Win_bytes_forward', 'Init_Win_bytes_backward',
+                'act_data_pkt_fwd', 'min_seg_size_forward', 'Active Mean', 'Active Std', 'Active Max',
+                'Active Min', 'Idle Mean', 'Idle Std', 'Idle Max', 'Idle Min', 'Label'
+            ];
+            const jsonData = filteredFlows.map(flow => ({
+                ...Object.fromEntries(
+                    csvHeaders.slice(0, -1).map((header, index) => [
+                        header,
+                        typeof flow.features[index] === 'number' ? flow.features[index].toFixed(4) : (flow.features[index] || 0)
+                    ])
+                ),
+                Label: flow.binary_prediction
+            }));
+
+            const jsonContent = JSON.stringify(jsonData, null, 2);
+            const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', `network_flows_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+        }
+
         socket.on('new_flow', function(flow) {
             flows.unshift(flow);
             if (flows.length > 1000) flows.pop();
@@ -713,10 +442,10 @@
         function showAllFlows() {
             filterType = "ALL";
             currentPage = 1;
-            filterDropdown.classList.remove('show');
-            allFlowsOption.classList.add('selected');
-            attacksOnlyOption.classList.remove('selected');
-            benignOnlyOption.classList.remove('selected');
+            filterDropdown.classList.add('hidden');
+            allFlowsOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
+            attacksOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+            benignOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
             chartData = { labels: [], attackCounts: [], normalCounts: [] };
             lastUpdateTime = null;
             flowChart.data.datasets[0].hidden = false;
@@ -732,10 +461,10 @@
         function showAttacksOnly() {
             filterType = "ATTACK";
             currentPage = 1;
-            filterDropdown.classList.remove('show');
-            allFlowsOption.classList.remove('selected');
-            attacksOnlyOption.classList.add('selected');
-            benignOnlyOption.classList.remove('selected');
+            filterDropdown.classList.add('hidden');
+            allFlowsOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+            attacksOnlyOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
+            benignOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
             chartData = { labels: [], attackCounts: [], normalCounts: [] };
             lastUpdateTime = null;
             flowChart.data.datasets[0].hidden = false;
@@ -751,10 +480,10 @@
         function showBenignOnly() {
             filterType = "BENIGN";
             currentPage = 1;
-            filterDropdown.classList.remove('show');
-            allFlowsOption.classList.remove('selected');
-            attacksOnlyOption.classList.remove('selected');
-            benignOnlyOption.classList.add('selected');
+            filterDropdown.classList.add('hidden');
+            allFlowsOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+            attacksOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
+            benignOnlyOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
             chartData = { labels: [], attackCounts: [], normalCounts: [] };
             lastUpdateTime = null;
             flowChart.data.datasets[0].hidden = true;
