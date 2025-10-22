@@ -1,502 +1,202 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Network Traffic Analysis Dashboard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-        }
-        .attack {
-            color: #ef4444;
-            font-weight: 600;
-        }
-        .normal {
-            color: #22c55e;
-            font-weight: 600;
-        }
-        .new-flow td {
-            animation: slideIn 0.4s ease-out;
-        }
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-20px); }
-            to { opacity: 1; transform: translateX(0); }
-        }
-        .filter-dropdown {
-            transition: opacity 0.2s ease, transform 0.2s ease;
-        }
-        .filter-dropdown.hidden {
-            opacity: 0;
-            transform: translateY(-10px);
-            pointer-events: none;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Network Traffic Analysis Dashboard</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+  <style>
+    body {
+      font-family: "Inter", sans-serif;
+    }
+    .attack {
+      color: #ef4444;
+      font-weight: 600;
+    }
+    .normal {
+      color: #22c55e;
+      font-weight: 600;
+    }
+    .new-flow td {
+      animation: slideIn 0.4s ease-out;
+    }
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
+    }
+    .filter-dropdown {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .filter-dropdown.hidden {
+      opacity: 0;
+      transform: translateY(-10px);
+      pointer-events: none;
+    }
+  </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
-    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
-        <!-- Header -->
-        <header class="mb-6 text-center">
-            <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
-                Network Traffic Analysis Dashboard
-            </h1>
-            <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
-                Real-time monitoring and analysis of network flows
-            </p>
-        </header>
+  <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+    <!-- Header -->
+    <header class="mb-6 text-center">
+      <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+        Network Traffic Analysis Dashboard
+      </h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        Real-time monitoring and analysis of network flows
+      </p>
+    </header>
 
-        <!-- Control Panel -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div class="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-                <div class="relative">
-                    <button onclick="toggleFilterDropdown()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
-                        Filter
-                    </button>
-                    <div id="filterDropdown" class="filter-dropdown hidden absolute mt-2 w-40 bg-white dark:bg-gray-800 rounded-md shadow-lg z-50">
-                        <div class="filter-option px-4 py-2 hover:bg-indigo-100 dark:hover:bg-gray-700 cursor-pointer text-sm" id="allFlowsOption" onclick="showAllFlows()">All Flows</div>
-                        <div class="filter-option px-4 py-2 hover:bg-indigo-100 dark:hover:bg-gray-700 cursor-pointer text-sm" id="attacksOnlyOption" onclick="showAttacksOnly()">Attacks Only</div>
-                        <div class="filter-option px-4 py-2 hover:bg-indigo-100 dark:hover:bg-gray-700 cursor-pointer text-sm" id="benignOnlyOption" onclick="showBenignOnly()">Benign Only</div>
-                    </div>
-                </div>
-                <button onclick="exportToCSV()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
-                    Export to CSV
-                </button>
-                <button onclick="exportToJSON()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
-                    Export to JSON
-                </button>
-            </div>
-            <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-center w-full sm:w-auto">
-                <div class="flex items-center gap-2">
-                    <label for="activeTimeout" class="text-sm font-medium text-gray-700 dark:text-gray-300">Active Timeout (s):</label>
-                    <input type="number" id="activeTimeout" min="1" value="60" class="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                </div>
-                <div class="flex items-center gap-2">
-                    <label for="idleTimeout" class="text-sm font-medium text-gray-700 dark:text-gray-300">Idle Timeout (s):</label>
-                    <input type="number" id="idleTimeout" min="1" value="10" class="w-20 p-2 border rounded-md dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm">
-                </div>
-                <button onclick="updateTimeouts()" class="bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm font-medium">
-                    Apply Changes
-                </button>
-            </div>
-        </div>
-
-        <!-- Chart -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-            <canvas id="flowChart" class="w-full h-64"></canvas>
-        </div>
-
-        <!-- Table -->
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
-            <table id="flowTable" class="w-full border-collapse">
-                <thead>
-                    <tr class="bg-indigo-600 text-white text-sm uppercase">
-                        <th class="p-3 text-left">Flow ID</th>
-                        <th class="p-3 text-left">Source IP</th>
-                        <th class="p-3 text-left">Source Port</th>
-                        <th class="p-3 text-left">Destination IP</th>
-                        <th class="p-3 text-left">Destination Port</th>
-                        <th class="p-3 text-left">Prediction</th>
-                        <th class="p-3 text-left">Confidence</th>
-                        <th class="p-3 text-left">Timestamp</th>
-                        <th class="p-3 text-left">Age (s)</th>
-                    </tr>
-                </thead>
-                <tbody id="flowBody"></tbody>
-            </table>
-            <div class="flex justify-center items-center gap-2 mt-4">
-                <button id="prevPage" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 text-sm">Previous</button>
-                <span id="pageInfo" class="text-sm text-gray-700 dark:text-gray-300">Page 1</span>
-                <button id="nextPage" class="bg-indigo-600 text-white px-3 py-1 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 text-sm">Next</button>
-            </div>
-        </div>
-
-        <!-- Footer -->
-        <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-            <p>Authors: MinhBQ - QuanTC</p>
-            <p>Course: Graduation thesis</p>
-            <p>Last updated: October, 2025</p>
-        </footer>
+    <!-- Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+      <canvas id="flowChart" class="w-full h-64"></canvas>
     </div>
 
-    <script>
-        const socket = io();
-        const tbody = document.getElementById('flowBody');
-        const filterDropdown = document.getElementById('filterDropdown');
-        const allFlowsOption = document.getElementById('allFlowsOption');
-        const attacksOnlyOption = document.getElementById('attacksOnlyOption');
-        const benignOnlyOption = document.getElementById('benignOnlyOption');
-        const prevPage = document.getElementById('prevPage');
-        const nextPage = document.getElementById('nextPage');
-        let flows = [];
-        let filterType = "ALL";
-        let currentPage = 1;
-        const flowsPerPage = 50;
-        const animatedFlowIds = new Set();
+    <!-- Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
+      <table id="flowTable" class="w-full border-collapse">
+        <thead>
+          <tr class="bg-indigo-600 text-white text-sm uppercase">
+            <th class="p-3 text-left">Flow ID</th>
+            <th class="p-3 text-left">Source IP</th>
+            <th class="p-3 text-left">Source Port</th>
+            <th class="p-3 text-left">Destination IP</th>
+            <th class="p-3 text-left">Destination Port</th>
+            <th class="p-3 text-left">Protocol</th>
+            <th class="p-3 text-left">Prediction</th>
+            <th class="p-3 text-left">Confidence</th>
+            <th class="p-3 text-left">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="flowBody"></tbody>
+      </table>
+    </div>
 
-        let chartData = {
-            labels: [],
-            attackCounts: [],
-            normalCounts: []
-        };
-        const maxDataPoints = 10;
-        let lastUpdateTime = null;
+    <!-- Footer -->
+    <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p>Authors: MinhBQ - QuanTC</p>
+      <p>Course: Graduation Thesis - 2025</p>
+      <p>Last updated: October 2025</p>
+    </footer>
+  </div>
 
-        const ctx = document.getElementById('flowChart').getContext('2d');
-        const flowChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: chartData.labels,
-                datasets: [
-                    {
-                        label: 'ATTACK',
-                        data: chartData.attackCounts,
-                        borderColor: '#ef4444',
-                        backgroundColor: 'rgba(239, 68, 68, 0.2)',
-                        fill: true,
-                        tension: 0.4,
-                        hidden: false
-                    },
-                    {
-                        label: 'BENIGN',
-                        data: chartData.normalCounts,
-                        borderColor: '#22c55e',
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                        fill: true,
-                        tension: 0.4,
-                        hidden: false
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        title: { display: true, text: 'Time', color: '#4b5563', font: { family: 'Inter', size: 12, weight: '500' } },
-                        ticks: { color: '#4b5563', font: { family: 'Inter', size: 10 } }
-                    },
-                    y: {
-                        title: { display: true, text: 'Number of Flows', color: '#4b5563', font: { family: 'Inter', size: 12, weight: '500' } },
-                        ticks: { color: '#4b5563', font: { family: 'Inter', size: 10 } },
-                        beginAtZero: true
-                    }
-                },
-                plugins: {
-                    legend: {
-                        labels: { color: '#4b5563', font: { family: 'Inter', size: 10 } }
-                    }
-                }
-            }
-        });
+  <script>
+    const socket = io();
+    const tbody = document.getElementById("flowBody");
+    let flows = [];
+    const maxFlows = 500;
 
-        allFlowsOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
-
-        function toggleFilterDropdown() {
-            filterDropdown.classList.toggle('hidden');
+    // Chart setup
+    const ctx = document.getElementById("flowChart").getContext("2d");
+    const chartData = {
+      labels: [],
+      attackCounts: [],
+      benignCounts: []
+    };
+    const flowChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          {
+            label: "ATTACK",
+            data: chartData.attackCounts,
+            borderColor: "#ef4444",
+            backgroundColor: "rgba(239, 68, 68, 0.2)",
+            fill: true,
+            tension: 0.4
+          },
+          {
+            label: "BENIGN",
+            data: chartData.benignCounts,
+            borderColor: "#22c55e",
+            backgroundColor: "rgba(34, 197, 94, 0.2)",
+            fill: true,
+            tension: 0.4
+          }
+        ]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            title: { display: true, text: "Time" }
+          },
+          y: {
+            title: { display: true, text: "Flow Count" },
+            beginAtZero: true
+          }
         }
+      }
+    });
 
-        document.addEventListener('click', function(event) {
-            if (!event.target.closest('.relative')) {
-                filterDropdown.classList.add('hidden');
-            }
-        });
+    function updateChart(flow) {
+      const now = new Date();
+      const timeKey = now.toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit"
+      });
 
-        function updateTimeouts() {
-            const activeTimeout = parseInt(document.getElementById('activeTimeout').value);
-            const idleTimeout = parseInt(document.getElementById('idleTimeout').value);
-            if (activeTimeout < 1 || idleTimeout < 1) {
-                alert("Timeout values must be positive integers");
-                return;
-            }
-            socket.emit('update_timeout', {
-                active_timeout: activeTimeout,
-                idle_timeout: idleTimeout
-            });
+      const lastLabel = chartData.labels[chartData.labels.length - 1];
+      if (lastLabel !== timeKey) {
+        chartData.labels.push(timeKey);
+        chartData.attackCounts.push(0);
+        chartData.benignCounts.push(0);
+        if (chartData.labels.length > 15) {
+          chartData.labels.shift();
+          chartData.attackCounts.shift();
+          chartData.benignCounts.shift();
         }
+      }
 
-        socket.on('timeout_updated', function(data) {
-            document.getElementById('activeTimeout').value = data.active_timeout;
-            document.getElementById('idleTimeout').value = data.idle_timeout;
-        });
+      const idx = chartData.labels.length - 1;
+      if (flow.binary_prediction === "ATTACK") chartData.attackCounts[idx]++;
+      else chartData.benignCounts[idx]++;
 
-        function updateChart(flow) {
-            if (filterType === "ATTACK" && flow.binary_prediction !== 'ATTACK') {
-                return;
-            }
-            if (filterType === "BENIGN" && flow.binary_prediction !== 'BENIGN') {
-                return;
-            }
+      flowChart.update("none");
+    }
 
-            const currentTime = new Date();
-            const timeKey = currentTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    function renderTable() {
+      tbody.innerHTML = "";
+      flows.forEach((flow) => {
+        const row = document.createElement("tr");
+        row.className =
+          "hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow";
+        const flowId = `${flow.src_ip}:${flow.src_port}->${flow.dst_ip}:${flow.dst_port}`;
+        row.innerHTML = `
+          <td class="p-3 text-sm">${flowId}</td>
+          <td class="p-3 text-sm">${flow.src_ip}</td>
+          <td class="p-3 text-sm">${flow.src_port}</td>
+          <td class="p-3 text-sm">${flow.dst_ip}</td>
+          <td class="p-3 text-sm">${flow.dst_port}</td>
+          <td class="p-3 text-sm">${flow.protocol}</td>
+          <td class="p-3 text-sm ${
+            flow.binary_prediction === "ATTACK" ? "attack" : "normal"
+          }">${flow.binary_prediction}</td>
+          <td class="p-3 text-sm">${flow.binary_confidence
+            ? flow.binary_confidence.toFixed(4)
+            : "N/A"}</td>
+          <td class="p-3 text-sm">${flow.timestamp}</td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
 
-            if (!lastUpdateTime || timeKey !== lastUpdateTime) {
-                if (chartData.labels.length >= maxDataPoints) {
-                    chartData.labels.shift();
-                    chartData.attackCounts.shift();
-                    chartData.normalCounts.shift();
-                }
-                chartData.labels.push(timeKey);
-                chartData.attackCounts.push(0);
-                chartData.normalCounts.push(0);
-                lastUpdateTime = timeKey;
-            }
-
-            const lastIndex = chartData.labels.length - 1;
-            if (filterType === "ALL") {
-                if (flow.binary_prediction === 'ATTACK') {
-                    chartData.attackCounts[lastIndex]++;
-                } else {
-                    chartData.normalCounts[lastIndex]++;
-                }
-            } else if (filterType === "ATTACK") {
-                chartData.attackCounts[lastIndex]++;
-            } else if (filterType === "BENIGN") {
-                chartData.normalCounts[lastIndex]++;
-            }
-
-            flowChart.data.labels = chartData.labels;
-            flowChart.data.datasets[0].data = chartData.attackCounts;
-            flowChart.data.datasets[1].data = chartData.normalCounts;
-            flowChart.update('none');
-        }
-
-        function renderFlows() {
-            tbody.innerHTML = '';
-            const now = new Date();
-            let filteredFlows = flows;
-            if (filterType === "ATTACK") {
-                filteredFlows = flows.filter(f => f.binary_prediction === 'ATTACK');
-            } else if (filterType === "BENIGN") {
-                filteredFlows = flows.filter(f => f.binary_prediction === 'BENIGN');
-            }
-
-            const totalFlows = filteredFlows.length;
-            const totalPages = Math.ceil(totalFlows / flowsPerPage);
-            currentPage = Math.min(currentPage, totalPages) || 1;
-
-            const startIndex = (currentPage - 1) * flowsPerPage;
-            const endIndex = startIndex + flowsPerPage;
-            const pageFlows = filteredFlows.slice(startIndex, endIndex);
-
-            pageFlows.forEach((flow, index) => {
-                const flowTime = new Date(flow.timestamp);
-                const age = (now - flowTime) / 1000;
-                const flowId = `${flow.src_ip}:${flow.src_port}-${flow.dst_ip}:${flow.dst_port}-${flow.timestamp}`;
-                const row = document.createElement('tr');
-                row.className = 'hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors';
-
-                if (!animatedFlowIds.has(flowId) && currentPage === 1 && index === 0) {
-                    row.classList.add('new-flow');
-                    animatedFlowIds.add(flowId);
-                    setTimeout(() => row.classList.remove('new-flow'), 400);
-                }
-
-                row.innerHTML = `
-                    <td class="p-3 text-sm text-left">${flowId}</td>
-                    <td class="p-3 text-sm text-left">${flow.src_ip}</td>
-                    <td class="p-3 text-sm text-left">${flow.src_port}</td>
-                    <td class="p-3 text-sm text-left">${flow.dst_ip}</td>
-                    <td class="p-3 text-sm text-left">${flow.dst_port}</td>
-                    <td class="p-3 text-sm text-left ${flow.binary_prediction === 'ATTACK' ? 'attack' : 'normal'}">${flow.binary_prediction}</td>
-                    <td class="p-3 text-sm text-left">${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : 'N/A'}</td>
-                    <td class="p-3 text-sm text-left">${flow.timestamp}</td>
-                    <td class="p-3 text-sm text-left">${age.toFixed(1)}</td>
-                `;
-                tbody.appendChild(row);
-            });
-
-            prevPage.disabled = currentPage === 1;
-            nextPage.disabled = currentPage === totalPages || totalPages === 0;
-            prevPage.onclick = () => {
-                if (currentPage > 1) {
-                    currentPage--;
-                    renderFlows();
-                }
-            };
-            nextPage.onclick = () => {
-                if (currentPage < totalPages) {
-                    currentPage++;
-                    renderFlows();
-                }
-            };
-
-            document.getElementById('pageInfo').textContent = `Page ${currentPage} of ${totalPages || 1}`;
-        }
-
-        function exportToCSV() {
-            let filteredFlows = flows;
-            if (filterType === "ATTACK") {
-                filteredFlows = flows.filter(f => f.binary_prediction === 'ATTACK');
-            } else if (filterType === "BENIGN") {
-                filteredFlows = flows.filter(f => f.binary_prediction === 'BENIGN');
-            }
-            const csvHeaders = [
-                'Destination Port', 'Flow Duration', 'Total Fwd Packets', 'Total Backward Packets',
-                'Total Length of Fwd Packets', 'Total Length of Bwd Packets', 'Fwd Packet Length Max',
-                'Fwd Packet Length Min', 'Fwd Packet Length Mean', 'Fwd Packet Length Std',
-                'Bwd Packet Length Max', 'Bwd Packet Length Min', 'Bwd Packet Length Mean',
-                'Bwd Packet Length Std', 'Flow Bytes/s', 'Flow Packets/s', 'Flow IAT Mean',
-                'Flow IAT Std', 'Flow IAT Max', 'Flow IAT Min', 'Fwd IAT Total', 'Fwd IAT Mean',
-                'Fwd IAT Std', 'Fwd IAT Max', 'Fwd IAT Min', 'Bwd IAT Total', 'Bwd IAT Mean',
-                'Bwd IAT Std', 'Bwd IAT Max', 'Bwd IAT Min', 'Fwd PSH Flags', 'Bwd PSH Flags',
-                'Fwd URG Flags', 'Bwd URG Flags', 'Fwd Header Length', 'Bwd Header Length',
-                'Fwd Packets/s', 'Bwd Packets/s', 'Min Packet Length', 'Max Packet Length',
-                'Packet Length Mean', 'Packet Length Std', 'Packet Length Variance', 'FIN Flag Count',
-                'SYN Flag Count', 'RST Flag Count', 'PSH Flag Count', 'ACK Flag Count', 'URG Flag Count',
-                'CWE Flag Count', 'ECE Flag Count', 'Down/Up Ratio', 'Average Packet Size',
-                'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Fwd Avg Bytes/Bulk',
-                'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk',
-                'Bwd Avg Bulk Rate', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets',
-                'Subflow Bwd Bytes', 'Init_Win_bytes_forward', 'Init_Win_bytes_backward',
-                'act_data_pkt_fwd', 'min_seg_size_forward', 'Active Mean', 'Active Std', 'Active Max',
-                'Active Min', 'Idle Mean', 'Idle Std', 'Idle Max', 'Idle Min', 'Label'
-            ];
-            const csvRows = [csvHeaders];
-
-            filteredFlows.forEach((flow) => {
-                const row = [
-                    ...(flow.features || Array(csvHeaders.length - 1).fill(0)).map(val => 
-                        typeof val === 'number' ? val.toFixed(4) : (val || 0)
-                    ),
-                    flow.binary_prediction
-                ];
-                csvRows.push(row);
-            });
-
-            const csvContent = csvRows.map(row => row.map(cell => `"${cell}"`).join(',')).join('\n');
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `network_flows_${new Date().toISOString().replace(/[:.]/g, '-')}.csv`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
-        function exportToJSON() {
-            let filteredFlows = flows;
-            if (filterType === "ATTACK") {
-                filteredFlows = flows.filter(f => f.binary_prediction === 'ATTACK');
-            } else if (filterType === "BENIGN") {
-                filteredFlows = flows.filter(f => f.binary_prediction === 'BENIGN');
-            }
-            const csvHeaders = [
-                'Destination Port', 'Flow Duration', 'Total Fwd Packets', 'Total Backward Packets',
-                'Total Length of Fwd Packets', 'Total Length of Bwd Packets', 'Fwd Packet Length Max',
-                'Fwd Packet Length Min', 'Fwd Packet Length Mean', 'Fwd Packet Length Std',
-                'Bwd Packet Length Max', 'Bwd Packet Length Min', 'Bwd Packet Length Mean',
-                'Bwd Packet Length Std', 'Flow Bytes/s', 'Flow Packets/s', 'Flow IAT Mean',
-                'Flow IAT Std', 'Flow IAT Max', 'Flow IAT Min', 'Fwd IAT Total', 'Fwd IAT Mean',
-                'Fwd IAT Std', 'Fwd IAT Max', 'Fwd IAT Min', 'Bwd IAT Total', 'Bwd IAT Mean',
-                'Bwd IAT Std', 'Bwd IAT Max', 'Bwd IAT Min', 'Fwd PSH Flags', 'Bwd PSH Flags',
-                'Fwd URG Flags', 'Bwd URG Flags', 'Fwd Header Length', 'Bwd Header Length',
-                'Fwd Packets/s', 'Bwd Packets/s', 'Min Packet Length', 'Max Packet Length',
-                'Packet Length Mean', 'Packet Length Std', 'Packet Length Variance', 'FIN Flag Count',
-                'SYN Flag Count', 'RST Flag Count', 'PSH Flag Count', 'ACK Flag Count', 'URG Flag Count',
-                'CWE Flag Count', 'ECE Flag Count', 'Down/Up Ratio', 'Average Packet Size',
-                'Avg Fwd Segment Size', 'Avg Bwd Segment Size', 'Fwd Avg Bytes/Bulk',
-                'Fwd Avg Packets/Bulk', 'Fwd Avg Bulk Rate', 'Bwd Avg Bytes/Bulk', 'Bwd Avg Packets/Bulk',
-                'Bwd Avg Bulk Rate', 'Subflow Fwd Packets', 'Subflow Fwd Bytes', 'Subflow Bwd Packets',
-                'Subflow Bwd Bytes', 'Init_Win_bytes_forward', 'Init_Win_bytes_backward',
-                'act_data_pkt_fwd', 'min_seg_size_forward', 'Active Mean', 'Active Std', 'Active Max',
-                'Active Min', 'Idle Mean', 'Idle Std', 'Idle Max', 'Idle Min', 'Label'
-            ];
-            const jsonData = filteredFlows.map(flow => ({
-                ...Object.fromEntries(
-                    csvHeaders.slice(0, -1).map((header, index) => [
-                        header,
-                        typeof flow.features[index] === 'number' ? flow.features[index].toFixed(4) : (flow.features[index] || 0)
-                    ])
-                ),
-                Label: flow.binary_prediction
-            }));
-
-            const jsonContent = JSON.stringify(jsonData, null, 2);
-            const blob = new Blob([jsonContent], { type: 'application/json;charset=utf-8;' });
-            const url = URL.createObjectURL(blob);
-            const link = document.createElement('a');
-            link.setAttribute('href', url);
-            link.setAttribute('download', `network_flows_${new Date().toISOString().replace(/[:.]/g, '-')}.json`);
-            link.style.visibility = 'hidden';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-            URL.revokeObjectURL(url);
-        }
-
-        socket.on('new_flow', function(flow) {
-            flows.unshift(flow);
-            if (flows.length > 1000) flows.pop();
-            if (animatedFlowIds.size > 1000) animatedFlowIds.clear();
-            updateChart(flow);
-            renderFlows();
-        });
-
-        function showAllFlows() {
-            filterType = "ALL";
-            currentPage = 1;
-            filterDropdown.classList.add('hidden');
-            allFlowsOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
-            attacksOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-            benignOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-            chartData = { labels: [], attackCounts: [], normalCounts: [] };
-            lastUpdateTime = null;
-            flowChart.data.datasets[0].hidden = false;
-            flowChart.data.datasets[1].hidden = false;
-            flows.forEach(flow => updateChart(flow));
-            flowChart.data.labels = chartData.labels;
-            flowChart.data.datasets[0].data = chartData.attackCounts;
-            flowChart.data.datasets[1].data = chartData.normalCounts;
-            flowChart.update('none');
-            renderFlows();
-        }
-
-        function showAttacksOnly() {
-            filterType = "ATTACK";
-            currentPage = 1;
-            filterDropdown.classList.add('hidden');
-            allFlowsOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-            attacksOnlyOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
-            benignOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-            chartData = { labels: [], attackCounts: [], normalCounts: [] };
-            lastUpdateTime = null;
-            flowChart.data.datasets[0].hidden = false;
-            flowChart.data.datasets[1].hidden = true;
-            flows.forEach(flow => updateChart(flow));
-            flowChart.data.labels = chartData.labels;
-            flowChart.data.datasets[0].data = chartData.attackCounts;
-            flowChart.data.datasets[1].data = chartData.normalCounts;
-            flowChart.update('none');
-            renderFlows();
-        }
-
-        function showBenignOnly() {
-            filterType = "BENIGN";
-            currentPage = 1;
-            filterDropdown.classList.add('hidden');
-            allFlowsOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-            attacksOnlyOption.classList.remove('text-indigo-600', 'dark:text-indigo-400');
-            benignOnlyOption.classList.add('text-indigo-600', 'dark:text-indigo-400');
-            chartData = { labels: [], attackCounts: [], normalCounts: [] };
-            lastUpdateTime = null;
-            flowChart.data.datasets[0].hidden = true;
-            flowChart.data.datasets[1].hidden = false;
-            flows.forEach(flow => updateChart(flow));
-            flowChart.data.labels = chartData.labels;
-            flowChart.data.datasets[0].data = chartData.attackCounts;
-            flowChart.data.datasets[1].data = chartData.normalCounts;
-            flowChart.update('none');
-            renderFlows();
-        }
-
-        setInterval(renderFlows, 1000);
-    </script>
+    socket.on("new_flow", (flow) => {
+      flows.unshift(flow);
+      if (flows.length > maxFlows) flows.pop();
+      updateChart(flow);
+      renderTable();
+    });
+  </script>
 </body>
 </html>

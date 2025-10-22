@@ -397,3 +397,107 @@
 2025-10-05 14:41:02,633 INFO: Processed flow: 192.168.171.1:56642 -> 192.168.171.130:5001
 2025-10-05 14:41:03,428 INFO: Processed flow: 192.168.171.1:54976 -> 192.168.171.130:5001
 2025-10-05 14:41:03,467 INFO: Processed flow: 192.168.171.1:56642 -> 192.168.171.130:5001
+2025-10-21 17:24:29,698 INFO: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.171.130:5001
+2025-10-21 17:24:29,699 INFO: [33mPress CTRL+C to quit[0m
+2025-10-21 17:24:29,699 INFO:  * Restarting with stat
+2025-10-21 17:24:30,341 WARNING:  * Debugger is active!
+2025-10-21 17:24:30,450 INFO:  * Debugger PIN: 100-334-878
+2025-10-21 17:25:06,767 INFO: 192.168.171.1 - - [21/Oct/2025 17:25:06] "GET / HTTP/1.1" 200 -
+2025-10-21 17:25:06,823 INFO: 192.168.171.1 - - [21/Oct/2025 17:25:06] "[33mGET /favicon.ico HTTP/1.1[0m" 404 -
+2025-10-21 17:25:09,437 INFO: 192.168.171.1 - - [21/Oct/2025 17:25:09] "GET / HTTP/1.1" 200 -
+2025-10-21 17:25:35,667 INFO: 192.168.171.1 - - [21/Oct/2025 17:25:35] "GET / HTTP/1.1" 200 -
+2025-10-21 17:27:59,410 INFO: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.171.130:5001
+2025-10-21 17:27:59,410 INFO: [33mPress CTRL+C to quit[0m
+2025-10-21 17:27:59,410 INFO:  * Restarting with stat
+2025-10-21 17:28:00,026 WARNING:  * Debugger is active!
+2025-10-21 17:28:00,027 INFO:  * Debugger PIN: 100-334-878
+2025-10-21 17:28:03,187 INFO: 192.168.171.1 - - [21/Oct/2025 17:28:03] "GET / HTTP/1.1" 200 -
+2025-10-21 17:28:03,906 INFO: 192.168.171.1 - - [21/Oct/2025 17:28:03] "GET /socket.io/?EIO=4&transport=polling&t=Pe6Jexb HTTP/1.1" 200 -
+2025-10-21 17:28:03,957 INFO: 192.168.171.1 - - [21/Oct/2025 17:28:03] "POST /socket.io/?EIO=4&transport=polling&t=Pe6JeyO&sid=7VGSv7Br5tR5SjwwAAAA HTTP/1.1" 200 -
+2025-10-21 17:28:03,968 INFO: 192.168.171.1 - - [21/Oct/2025 17:28:03] "GET /socket.io/?EIO=4&transport=polling&t=Pe6JeyP&sid=7VGSv7Br5tR5SjwwAAAA HTTP/1.1" 200 -
+2025-10-21 17:29:19,332 DEBUG: Starting new HTTP connection (1): 52.73.129.151:80
+2025-10-21 17:29:27,335 ERROR: Predict API error: HTTPConnectionPool(host='52.73.129.151', port=80): Max retries exceeded with url: /predict (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x7bf40860bcd0>, 'Connection to 52.73.129.151 timed out. (connect timeout=8)'))
+2025-10-21 17:29:27,352 INFO: 192.168.171.1 - - [21/Oct/2025 17:29:27] "POST /ingest_flow HTTP/1.1" 200 -
+2025-10-21 17:30:46,514 DEBUG: Starting new HTTP connection (1): 52.73.129.151:80
+2025-10-21 17:30:54,525 ERROR: Predict API error: HTTPConnectionPool(host='52.73.129.151', port=80): Max retries exceeded with url: /predict (Caused by ConnectTimeoutError(<urllib3.connection.HTTPConnection object at 0x7bf40860bfd0>, 'Connection to 52.73.129.151 timed out. (connect timeout=8)'))
+2025-10-21 17:30:54,531 INFO: 192.168.171.1 - - [21/Oct/2025 17:30:54] "POST /ingest_flow HTTP/1.1" 200 -
+2025-10-21 17:36:19,047 INFO: 192.168.171.1 - - [21/Oct/2025 17:36:19] "GET /socket.io/?EIO=4&transport=websocket&sid=7VGSv7Br5tR5SjwwAAAA HTTP/1.1" 200 -
+2025-10-21 17:41:01,861 INFO: 192.168.171.1 - - [21/Oct/2025 17:41:01] "GET /socket.io/?EIO=4&transport=polling&t=Pe6McpG HTTP/1.1" 200 -
+2025-10-21 17:41:01,882 INFO: 192.168.171.1 - - [21/Oct/2025 17:41:01] "POST /socket.io/?EIO=4&transport=polling&t=Pe6Mctc&sid=qTeCo6yEAhvW7lsjAAAC HTTP/1.1" 200 -
+2025-10-21 17:41:01,891 INFO: 192.168.171.1 - - [21/Oct/2025 17:41:01] "GET /socket.io/?EIO=4&transport=polling&t=Pe6Mctd&sid=qTeCo6yEAhvW7lsjAAAC HTTP/1.1" 200 -
+2025-10-21 18:08:04,296 INFO: 192.168.171.1 - - [21/Oct/2025 18:08:04] "GET /socket.io/?EIO=4&transport=websocket&sid=qTeCo6yEAhvW7lsjAAAC HTTP/1.1" 200 -
+2025-10-21 18:09:27,632 INFO: 192.168.171.1 - - [21/Oct/2025 18:09:27] "GET /socket.io/?EIO=4&transport=polling&t=Pe6T746 HTTP/1.1" 200 -
+2025-10-21 18:09:27,670 INFO: 192.168.171.1 - - [21/Oct/2025 18:09:27] "POST /socket.io/?EIO=4&transport=polling&t=Pe6T7KZ&sid=-aqPi2d3CeS46vkqAAAE HTTP/1.1" 200 -
+2025-10-21 18:09:27,682 INFO: 192.168.171.1 - - [21/Oct/2025 18:09:27] "GET /socket.io/?EIO=4&transport=polling&t=Pe6T7Kb&sid=-aqPi2d3CeS46vkqAAAE HTTP/1.1" 200 -
+2025-10-21 18:09:27,720 INFO: 192.168.171.1 - - [21/Oct/2025 18:09:27] "GET /socket.io/?EIO=4&transport=polling&t=Pe6T7LM&sid=-aqPi2d3CeS46vkqAAAE HTTP/1.1" 200 -
+2025-10-21 18:16:44,101 INFO: 192.168.171.1 - - [21/Oct/2025 18:16:44] "GET /socket.io/?EIO=4&transport=polling&t=Pe6UnGp HTTP/1.1" 200 -
+2025-10-21 18:16:44,121 INFO: 192.168.171.1 - - [21/Oct/2025 18:16:44] "POST /socket.io/?EIO=4&transport=polling&t=Pe6UnuA&sid=fs82E5UQrqVSDc3gAAAG HTTP/1.1" 200 -
+2025-10-21 18:16:44,125 INFO: 192.168.171.1 - - [21/Oct/2025 18:16:44] "GET /socket.io/?EIO=4&transport=polling&t=Pe6UnuC&sid=fs82E5UQrqVSDc3gAAAG HTTP/1.1" 200 -
+2025-10-21 18:31:54,024 INFO: 192.168.171.1 - - [21/Oct/2025 18:31:54] "GET /socket.io/?EIO=4&transport=websocket&sid=fs82E5UQrqVSDc3gAAAG HTTP/1.1" 200 -
+2025-10-21 18:33:37,589 INFO: 192.168.171.1 - - [21/Oct/2025 18:33:37] "GET /socket.io/?EIO=4&transport=polling&t=Pe6YfJp HTTP/1.1" 200 -
+2025-10-21 18:33:37,607 INFO: 192.168.171.1 - - [21/Oct/2025 18:33:37] "POST /socket.io/?EIO=4&transport=polling&t=Pe6YfK7&sid=NJT1gV5VhdU90flUAAAI HTTP/1.1" 200 -
+2025-10-21 18:33:37,611 INFO: 192.168.171.1 - - [21/Oct/2025 18:33:37] "GET /socket.io/?EIO=4&transport=polling&t=Pe6YfK8&sid=NJT1gV5VhdU90flUAAAI HTTP/1.1" 200 -
+2025-10-21 18:42:42,743 INFO: 192.168.171.1 - - [21/Oct/2025 18:42:42] "GET /socket.io/?EIO=4&transport=websocket&sid=NJT1gV5VhdU90flUAAAI HTTP/1.1" 200 -
+2025-10-21 18:42:42,946 INFO: 192.168.171.1 - - [21/Oct/2025 18:42:42] "GET /socket.io/?EIO=4&transport=polling&t=Pe6b24i HTTP/1.1" 200 -
+2025-10-21 18:44:03,815 INFO: 192.168.171.1 - - [21/Oct/2025 18:44:03] "POST /socket.io/?EIO=4&transport=polling&t=Pe6b2Cn&sid=NP1oZTaQA6Vqfq41AAAK HTTP/1.1" 200 -
+2025-10-21 18:44:03,826 INFO: 192.168.171.1 - - [21/Oct/2025 18:44:03] "GET /socket.io/?EIO=4&transport=polling&t=Pe6b2Cs&sid=NP1oZTaQA6Vqfq41AAAK HTTP/1.1" 200 -
+2025-10-21 20:04:31,500 INFO: 192.168.171.1 - - [21/Oct/2025 20:04:31] "GET /socket.io/?EIO=4&transport=polling&t=Pe6tlzT HTTP/1.1" 200 -
+2025-10-21 20:04:31,521 INFO: 192.168.171.1 - - [21/Oct/2025 20:04:31] "POST /socket.io/?EIO=4&transport=polling&t=Pe6tmaP&sid=-lDGrv3zgZvkJhF3AAAM HTTP/1.1" 200 -
+2025-10-21 20:04:31,524 INFO: 192.168.171.1 - - [21/Oct/2025 20:04:31] "GET /socket.io/?EIO=4&transport=polling&t=Pe6tmaQ&sid=-lDGrv3zgZvkJhF3AAAM HTTP/1.1" 200 -
+2025-10-21 20:12:30,237 INFO: 192.168.171.1 - - [21/Oct/2025 20:12:30] "GET /socket.io/?EIO=4&transport=websocket&sid=-aqPi2d3CeS46vkqAAAE HTTP/1.1" 200 -
+2025-10-21 20:19:11,847 INFO: 192.168.171.1 - - [21/Oct/2025 20:19:11] "GET /socket.io/?EIO=4&transport=polling&t=Pe6x7UA HTTP/1.1" 200 -
+2025-10-21 20:19:11,869 INFO: 192.168.171.1 - - [21/Oct/2025 20:19:11] "POST /socket.io/?EIO=4&transport=polling&t=Pe6x7VT&sid=jiTZ7DgFliTaKZsaAAAO HTTP/1.1" 200 -
+2025-10-21 20:19:11,876 INFO: 192.168.171.1 - - [21/Oct/2025 20:19:11] "GET /socket.io/?EIO=4&transport=polling&t=Pe6x7VU&sid=jiTZ7DgFliTaKZsaAAAO HTTP/1.1" 200 -
+2025-10-21 20:20:17,181 INFO: 192.168.171.1 - - [21/Oct/2025 20:20:17] "GET /socket.io/?EIO=4&transport=websocket&sid=NP1oZTaQA6Vqfq41AAAK HTTP/1.1" 200 -
+2025-10-21 20:34:57,823 INFO: 192.168.171.1 - - [21/Oct/2025 20:34:57] "GET /socket.io/?EIO=4&transport=websocket&sid=-lDGrv3zgZvkJhF3AAAM HTTP/1.1" 200 -
+2025-10-21 20:36:30,311 INFO: 192.168.171.1 - - [21/Oct/2025 20:36:30] "GET /socket.io/?EIO=4&transport=websocket&sid=jiTZ7DgFliTaKZsaAAAO HTTP/1.1" 200 -
+2025-10-21 20:41:59,998 INFO: 192.168.171.1 - - [21/Oct/2025 20:41:59] "GET /socket.io/?EIO=4&transport=polling&t=Pe70LS- HTTP/1.1" 200 -
+2025-10-21 20:42:00,017 INFO: 192.168.171.1 - - [21/Oct/2025 20:42:00] "POST /socket.io/?EIO=4&transport=polling&t=Pe70LXD&sid=k1Csmk4qllyj653oAAAQ HTTP/1.1" 200 -
+2025-10-21 20:42:00,023 INFO: 192.168.171.1 - - [21/Oct/2025 20:42:00] "GET /socket.io/?EIO=4&transport=polling&t=Pe70LXE&sid=k1Csmk4qllyj653oAAAQ HTTP/1.1" 200 -
+2025-10-21 20:45:12,285 INFO: 192.168.171.1 - - [21/Oct/2025 20:45:12] "GET /socket.io/?EIO=4&transport=websocket&sid=k1Csmk4qllyj653oAAAQ HTTP/1.1" 200 -
+2025-10-21 21:09:29,016 INFO: 192.168.171.1 - - [21/Oct/2025 21:09:29] "GET /socket.io/?EIO=4&transport=polling&t=Pe76e2k HTTP/1.1" 200 -
+2025-10-21 21:09:29,091 INFO: 192.168.171.1 - - [21/Oct/2025 21:09:29] "POST /socket.io/?EIO=4&transport=polling&t=Pe76e7p&sid=eBi7acVvzKOE7e2qAAAS HTTP/1.1" 200 -
+2025-10-21 21:09:29,212 INFO: 192.168.171.1 - - [21/Oct/2025 21:09:29] "GET /socket.io/?EIO=4&transport=polling&t=Pe76e9l&sid=eBi7acVvzKOE7e2qAAAS HTTP/1.1" 200 -
+2025-10-21 22:21:07,914 INFO: 192.168.171.1 - - [21/Oct/2025 22:21:07] "GET /socket.io/?EIO=4&transport=websocket&sid=eBi7acVvzKOE7e2qAAAS HTTP/1.1" 200 -
+2025-10-21 22:21:11,993 INFO: 192.168.171.1 - - [21/Oct/2025 22:21:11] "GET /socket.io/?EIO=4&transport=polling&t=Pe7N2ac HTTP/1.1" 200 -
+2025-10-21 22:21:12,024 INFO: 192.168.171.1 - - [21/Oct/2025 22:21:12] "POST /socket.io/?EIO=4&transport=polling&t=Pe7N2fE&sid=q8SdQ4NkUswKQVB2AAAU HTTP/1.1" 200 -
+2025-10-21 22:21:12,040 INFO: 192.168.171.1 - - [21/Oct/2025 22:21:12] "GET /socket.io/?EIO=4&transport=polling&t=Pe7N2fY&sid=q8SdQ4NkUswKQVB2AAAU HTTP/1.1" 200 -
+2025-10-21 22:29:44,769 INFO: 192.168.171.1 - - [21/Oct/2025 22:29:44] "GET /socket.io/?EIO=4&transport=polling&t=Pe7O_qg HTTP/1.1" 200 -
+2025-10-21 22:29:44,787 INFO: 192.168.171.1 - - [21/Oct/2025 22:29:44] "POST /socket.io/?EIO=4&transport=polling&t=Pe7O_r0&sid=vjcV_MhsmnsAEnyfAAAW HTTP/1.1" 200 -
+2025-10-21 22:29:44,791 INFO: 192.168.171.1 - - [21/Oct/2025 22:29:44] "GET /socket.io/?EIO=4&transport=polling&t=Pe7O_r1&sid=vjcV_MhsmnsAEnyfAAAW HTTP/1.1" 200 -
+2025-10-21 22:36:40,420 INFO: 192.168.171.1 - - [21/Oct/2025 22:36:40] "GET /socket.io/?EIO=4&transport=websocket&sid=vjcV_MhsmnsAEnyfAAAW HTTP/1.1" 200 -
+2025-10-21 22:37:04,756 INFO: 192.168.171.1 - - [21/Oct/2025 22:37:04] "GET /socket.io/?EIO=4&transport=polling&t=Pe7QhFm HTTP/1.1" 200 -
+2025-10-21 22:37:04,774 INFO: 192.168.171.1 - - [21/Oct/2025 22:37:04] "POST /socket.io/?EIO=4&transport=polling&t=Pe7QhG2&sid=vbfcWZtCdpJrqF03AAAY HTTP/1.1" 200 -
+2025-10-21 22:37:04,781 INFO: 192.168.171.1 - - [21/Oct/2025 22:37:04] "GET /socket.io/?EIO=4&transport=polling&t=Pe7QhG4&sid=vbfcWZtCdpJrqF03AAAY HTTP/1.1" 200 -
+2025-10-21 22:47:52,881 INFO: 192.168.171.1 - - [21/Oct/2025 22:47:52] "GET /socket.io/?EIO=4&transport=websocket&sid=q8SdQ4NkUswKQVB2AAAU HTTP/1.1" 200 -
+2025-10-21 23:24:11,984 INFO: 192.168.171.1 - - [21/Oct/2025 23:24:11] "GET /socket.io/?EIO=4&transport=websocket&sid=vbfcWZtCdpJrqF03AAAY HTTP/1.1" 200 -
+2025-10-22 00:43:02,756 INFO: 192.168.171.1 - - [22/Oct/2025 00:43:02] "GET /socket.io/?EIO=4&transport=polling&t=Pe7tWTU HTTP/1.1" 200 -
+2025-10-22 00:43:02,777 INFO: 192.168.171.1 - - [22/Oct/2025 00:43:02] "POST /socket.io/?EIO=4&transport=polling&t=Pe7tWTo&sid=1wk82ANziUeLUCRMAAAa HTTP/1.1" 200 -
+2025-10-22 00:43:02,785 INFO: 192.168.171.1 - - [22/Oct/2025 00:43:02] "GET /socket.io/?EIO=4&transport=polling&t=Pe7tWTp&sid=1wk82ANziUeLUCRMAAAa HTTP/1.1" 200 -
+2025-10-22 01:58:15,683 INFO: 192.168.171.1 - - [22/Oct/2025 01:58:15] "GET /socket.io/?EIO=4&transport=websocket&sid=1wk82ANziUeLUCRMAAAa HTTP/1.1" 200 -
+2025-10-22 09:57:13,550 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:13] "GET /socket.io/?EIO=4&transport=polling&t=Pe9sMKx HTTP/1.1" 200 -
+2025-10-22 09:57:39,762 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:39] "GET /socket.io/?EIO=4&transport=polling&t=Pe9sSkh HTTP/1.1" 200 -
+2025-10-22 09:57:39,781 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:39] "POST /socket.io/?EIO=4&transport=polling&t=Pe9sSk_&sid=KgyJMntlVk-_n0gfAAAd HTTP/1.1" 200 -
+2025-10-22 09:57:39,785 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:39] "GET /socket.io/?EIO=4&transport=polling&t=Pe9sSl0&sid=KgyJMntlVk-_n0gfAAAd HTTP/1.1" 200 -
+2025-10-22 09:57:42,584 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:42] "GET /socket.io/?EIO=4&transport=websocket&sid=KgyJMntlVk-_n0gfAAAd HTTP/1.1" 200 -
+2025-10-22 09:57:44,765 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:44] "GET /socket.io/?EIO=4&transport=polling&t=Pe9sTyp HTTP/1.1" 200 -
+2025-10-22 09:57:44,783 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:44] "POST /socket.io/?EIO=4&transport=polling&t=Pe9sTz9&sid=EKgr3C8Wqap-gNXAAAAf HTTP/1.1" 200 -
+2025-10-22 09:57:44,793 INFO: 192.168.171.1 - - [22/Oct/2025 09:57:44] "GET /socket.io/?EIO=4&transport=polling&t=Pe9sTz9.0&sid=EKgr3C8Wqap-gNXAAAAf HTTP/1.1" 200 -
+2025-10-22 10:11:14,369 INFO: 192.168.171.1 - - [22/Oct/2025 10:11:14] "GET /socket.io/?EIO=4&transport=websocket&sid=EKgr3C8Wqap-gNXAAAAf HTTP/1.1" 200 -
+2025-10-22 10:40:58,006 INFO: [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on all addresses (0.0.0.0)
+ * Running on http://127.0.0.1:5001
+ * Running on http://192.168.171.130:5001
+2025-10-22 10:40:58,006 INFO: [33mPress CTRL+C to quit[0m
+2025-10-22 10:40:58,007 INFO:  * Restarting with stat
+2025-10-22 10:40:58,608 WARNING:  * Debugger is active!
+2025-10-22 10:40:58,610 INFO:  * Debugger PIN: 437-664-987
+2025-10-22 10:41:15,943 DEBUG: Starting new HTTP connection (1): 52.73.129.151:80
+2025-10-22 10:41:19,041 ERROR: Predict API error: HTTPConnectionPool(host='52.73.129.151', port=80): Max retries exceeded with url: /predict (Caused by NewConnectionError('<urllib3.connection.HTTPConnection object at 0x76774e0e0a60>: Failed to establish a new connection: [Errno 113] No route to host'))
+2025-10-22 10:41:19,049 INFO: 192.168.171.1 - - [22/Oct/2025 10:41:19] "POST /ingest_flow HTTP/1.1" 200 -
