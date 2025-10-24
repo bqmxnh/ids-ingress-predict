@@ -7,6 +7,8 @@ from datetime import datetime
 from pathlib import Path
 import threading
 import math
+import boto3
+import json
 
 # ============================================================
 # Flask App Setup
@@ -32,7 +34,19 @@ OUTPUT_DIR = BASE_DIR / "data"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 OUTPUT_CSV = OUTPUT_DIR / "predictions.csv"
 
+# ============================================================
+# DynamoDB Setup
+# ============================================================
+try:
+    dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
+    table = dynamodb.Table("IDS_Flow_Logs")
+except Exception as e:
+    logging.error(f"❌ DynamoDB initialization failed: {e}")
+    table = None
+
+# ============================================================
 # In-memory flow cache
+# ============================================================
 flow_results = []
 flow_results_lock = threading.Lock()
 
@@ -78,6 +92,40 @@ FEATURE_COLUMNS = [
 ]
 
 # ============================================================
+# DynamoDB Logging (Async)
+# ============================================================
+def log_to_dynamodb_async(result):
+    """Ghi log lên DynamoDB ở background thread (non-blocking)."""
+    if not table:
+        logging.warning("⚠️ DynamoDB table not initialized, skip log.")
+        return
+
+    def _worker():
+        try:
+            features = result.get("features", {})
+            content = (
+                f"Src: {result.get('src_ip')}:{result.get('src_port')} → "
+                f"Dst: {result.get('dst_ip')}:{result.get('dst_port')} ({result.get('protocol')}), "
+                f"Confidence: {result.get('binary_confidence', 0):.3f}, "
+                f"Flow ID: {result.get('flow_id')}, "
+                f"Bytes/s: {features.get('Flow Bytes/s', 0)}, "
+                f"Pkts/s: {features.get('Flow Packets/s', 0)}"
+            )
+            item = {
+                "flow_id": str(result.get("flow_id", "")),
+                "time": result.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "content": content,
+                "label": result.get("binary_prediction", "UNKNOWN"),
+                "features_json": json.dumps(features)
+            }
+            table.put_item(Item=item)
+            logging.info(f"✅ Logged flow {item['flow_id']} to DynamoDB.")
+        except Exception as e:
+            logging.error(f"❌ DynamoDB insert failed: {e}")
+
+    threading.Thread(target=_worker, daemon=True).start()
+
+# ============================================================
 # Prediction via external model API
 # ============================================================
 def predict_features_api(features_dict):
@@ -94,17 +142,17 @@ def predict_features_api(features_dict):
         return "ERROR", None
 
 # ============================================================
-# Process a single incoming flow (from CSV or live)
+# Process a single incoming flow
 # ============================================================
 def process_incoming_flow(payload):
     """Process one flow or feature set received from /ingest_flow."""
-    # Extract 77 features only (ignore metadata)
+    # Extract 77 features
     features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
 
-    # Predict using external API
+    # Predict via external ML model
     label, conf = predict_features_api(features)
 
-    # Extract metadata (for dashboard only)
+    # Metadata
     meta = {
         "flow_id": payload.get("Flow ID", ""),
         "src_ip": payload.get("Source IP", ""),
@@ -112,18 +160,18 @@ def process_incoming_flow(payload):
         "src_port": payload.get("Source Port", ""),
         "dst_port": payload.get("Destination Port", ""),
         "protocol": payload.get("Protocol", ""),
-        "timestamp": payload.get("Timestamp") or datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        "timestamp": payload.get("Timestamp") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
 
-    # Combine result for realtime dashboard
+    # Combine result
     result = {
         **meta,
         "binary_prediction": label,
         "binary_confidence": conf,
-        "features": features
+        "features": features,
     }
 
-    # Store and emit
+    # Emit realtime to dashboard
     with flow_results_lock:
         flow_results.append(result)
         if len(flow_results) > 1000:
@@ -133,10 +181,13 @@ def process_incoming_flow(payload):
     except Exception:
         logging.exception("SocketIO emit failed")
 
-    # Write CSV (only 77 features + Label)
+    # 🔹 Ghi log song song lên DynamoDB
+    log_to_dynamodb_async(result)
+
+    # Ghi CSV cục bộ (chỉ features + label)
     row = features.copy()
     row["Label"] = label
-    pd.DataFrame([row]).to_csv(OUTPUT_CSV, mode='a', index=False, header=not OUTPUT_CSV.exists())
+    pd.DataFrame([row]).to_csv(OUTPUT_CSV, mode="a", index=False, header=not OUTPUT_CSV.exists())
 
     return result
 
@@ -173,4 +224,3 @@ def index():
 # ============================================================
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5001, debug=True)
-
