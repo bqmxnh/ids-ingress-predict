@@ -39,7 +39,7 @@ OUTPUT_CSV = OUTPUT_DIR / "predictions.csv"
 # ============================================================
 try:
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
-    table = dynamodb.Table("IDS_Flow_Logs")
+    table = dynamodb.Table("ids_log_system")
 except Exception as e:
     logging.error(f"❌ DynamoDB initialization failed: {e}")
     table = None
