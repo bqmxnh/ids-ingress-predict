@@ -30,11 +30,6 @@ logging.basicConfig(
 # Configuration
 # ============================================================
 MODEL_API_URL = "http://52.73.129.151/predict"  # FastAPI/ML model endpoint
-BASE_DIR = Path(__file__).resolve().parent
-OUTPUT_DIR = BASE_DIR / "data"
-OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-OUTPUT_CSV = OUTPUT_DIR / "predictions.csv"
-
 # ============================================================
 # DynamoDB Setup
 # ============================================================
@@ -122,7 +117,7 @@ FEATURE_COLUMNS = [
 def log_to_dynamodb_async(result):
     """Ghi log lên DynamoDB ở background thread (non-blocking)."""
     if not table:
-        logging.warning("DynamoDB table not initialized, skip log.")
+        logging.warning("⚠️ DynamoDB table not initialized, skip log.")
         return
 
     def _worker():
@@ -179,14 +174,14 @@ def process_incoming_flow(payload):
 
     # Metadata
     meta = {
-    "flow_id": payload.get("Flow ID", ""),
-    "src_ip": payload.get("Source IP", ""),
-    "dst_ip": payload.get("Destination IP", ""),
-    "src_port": payload.get("Source Port", ""),
-    "dst_port": payload.get("Destination Port", ""),
-    "protocol": payload.get("Protocol", ""),
-    "timestamp": payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-    "timestamp_ms": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
+        "flow_id": payload.get("Flow ID", ""),
+        "src_ip": payload.get("Source IP", ""),
+        "dst_ip": payload.get("Destination IP", ""),
+        "src_port": payload.get("Source Port", ""),
+        "dst_port": payload.get("Destination Port", ""),
+        "protocol": payload.get("Protocol", ""),
+        "timestamp": payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+        "timestamp_ms": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
     }
 
     # Combine result
@@ -207,15 +202,11 @@ def process_incoming_flow(payload):
     except Exception:
         logging.exception("SocketIO emit failed")
 
-    # 🔹 Ghi log song song lên DynamoDB
+    # Ghi log song song lên DynamoDB
     log_to_dynamodb_async(result)
 
-    # Ghi CSV cục bộ (chỉ features + label)
-    row = features.copy()
-    row["Label"] = normalize_label(label)
-    pd.DataFrame([row]).to_csv(OUTPUT_CSV, mode="a", index=False, header=not OUTPUT_CSV.exists())
-
     return result
+
 
 # ============================================================
 # Endpoint: /ingest_flow
