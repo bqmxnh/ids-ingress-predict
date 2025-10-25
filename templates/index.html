@@ -32,6 +32,14 @@
         transform: translateX(0);
       }
     }
+    .filter-dropdown {
+      transition: opacity 0.2s ease, transform 0.2s ease;
+    }
+    .filter-dropdown.hidden {
+      opacity: 0;
+      transform: translateY(-10px);
+      pointer-events: none;
+    }
   </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
@@ -130,7 +138,6 @@
       }
     });
 
-    // Update chart
     function updateChart(flow) {
       const now = new Date();
       const timeKey = now.toLocaleTimeString([], {
@@ -158,7 +165,6 @@
       flowChart.update("none");
     }
 
-    // ✅ Render table with readable timestamp
     function renderTable() {
       tbody.innerHTML = "";
       flows.forEach((flow) => {
@@ -166,15 +172,6 @@
         row.className =
           "hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow";
         const flowId = `${flow.src_ip}:${flow.src_port}->${flow.dst_ip}:${flow.dst_port}`;
-
-        // Convert timestamp → readable format
-        const readableTime = flow.timestamp
-          ? new Date(flow.timestamp).toLocaleString("vi-VN", {
-              hour12: false,
-              timeZone: "Asia/Ho_Chi_Minh"
-            })
-          : "N/A";
-
         row.innerHTML = `
           <td class="p-3 text-sm">${flowId}</td>
           <td class="p-3 text-sm">${flow.src_ip}</td>
@@ -185,18 +182,15 @@
           <td class="p-3 text-sm ${
             flow.binary_prediction === "ATTACK" ? "attack" : "normal"
           }">${flow.binary_prediction}</td>
-          <td class="p-3 text-sm">${
-            flow.binary_confidence
-              ? flow.binary_confidence.toFixed(4)
-              : "N/A"
-          }</td>
-          <td class="p-3 text-sm">${readableTime}</td>
+          <td class="p-3 text-sm">${flow.binary_confidence
+            ? flow.binary_confidence.toFixed(4)
+            : "N/A"}</td>
+          <td class="p-3 text-sm">${flow.timestamp}</td>
         `;
         tbody.appendChild(row);
       });
     }
 
-    // Handle new flow from SocketIO
     socket.on("new_flow", (flow) => {
       flows.unshift(flow);
       if (flows.length > maxFlows) flows.pop();
