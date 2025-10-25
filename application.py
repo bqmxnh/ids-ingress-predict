@@ -3,7 +3,7 @@ import logging
 import requests
 from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 import threading
 import math
@@ -81,6 +81,18 @@ def to_timestamp_ms(dt_str):
             return int(datetime.now().timestamp() * 1000)
 
 # ============================================================
+# Helper: Convert timestamp (ms) → human-readable VN time
+# ============================================================
+def format_timestamp_ms(ts):
+    """Đổi epoch milliseconds → 'dd/MM/yyyy hh:mm SA/CH' (giờ Việt Nam)."""
+    try:
+        dt = datetime.fromtimestamp(int(ts) / 1000, tz=timezone(timedelta(hours=7)))
+        s = dt.strftime("%d/%m/%Y %I:%M %p")
+        return s.replace("AM", "SA").replace("PM", "CH")
+    except Exception:
+        return "-"
+
+# ============================================================
 # Helper: Normalize label to lowercase
 # ============================================================
 def normalize_label(label):
@@ -137,7 +149,7 @@ def log_to_dynamodb_async(result):
             )
             item = {
                 "flow_id": str(result.get("flow_id", "")),
-                "timestamp": int(result.get("timestamp", datetime.now().timestamp() * 1000)),
+                "timestamp": int(result.get("timestamp", datetime.now().timestamp() * 1000)),  # ✅ đúng key schema
                 "content": content,
                 "label": normalize_label(result.get("binary_prediction", "UNKNOWN")),
                 "features_json": json.dumps(features)
@@ -194,6 +206,9 @@ def process_incoming_flow(payload):
         "binary_confidence": conf,
         "features": features,
     }
+
+    # ✅ Add human-readable time for dashboard
+    result["formatted_time"] = format_timestamp_ms(result["timestamp"])
 
     # Emit realtime to dashboard
     with flow_results_lock:
