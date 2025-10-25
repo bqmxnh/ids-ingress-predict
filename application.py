@@ -41,7 +41,7 @@ try:
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     table = dynamodb.Table("ids_log_system")
 except Exception as e:
-    logging.error(f"❌ DynamoDB initialization failed: {e}")
+    logging.error(f"DynamoDB initialization failed: {e}")
     table = None
 
 # ============================================================
@@ -64,6 +64,30 @@ def safe(val):
         return float(val)
     except Exception:
         return 0
+
+# ============================================================
+# Helper: Convert datetime string → timestamp (milliseconds)
+# ============================================================
+def to_timestamp_ms(dt_str):
+    """Convert datetime string 'YYYY-MM-DD HH:MM:SS.ssssss' to milliseconds since epoch."""
+    try:
+        dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S.%f")
+        return int(dt.timestamp() * 1000)
+    except Exception:
+        try:
+            dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
+            return int(dt.timestamp() * 1000)
+        except Exception:
+            return int(datetime.now().timestamp() * 1000)
+
+# ============================================================
+# Helper: Normalize label to lowercase
+# ============================================================
+def normalize_label(label):
+    """Convert label like 'BENIGN' or 'ATTACK' to lowercase ('benign', 'attack')."""
+    if not isinstance(label, str):
+        return "unknown"
+    return label.strip().lower()
 
 # ============================================================
 # Feature columns (77)
@@ -113,15 +137,15 @@ def log_to_dynamodb_async(result):
             )
             item = {
                 "flow_id": str(result.get("flow_id", "")),
-                "time": result.get("timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+                "time": result.get("timestamp", int(datetime.now().timestamp() * 1000)),
                 "content": content,
-                "label": result.get("binary_prediction", "UNKNOWN"),
+                "label": normalize_label(result.get("binary_prediction", "UNKNOWN")),
                 "features_json": json.dumps(features)
             }
             table.put_item(Item=item)
-            logging.info(f"✅ Logged flow {item['flow_id']} to DynamoDB.")
+            logging.info(f"Logged flow {item['flow_id']} to DynamoDB.")
         except Exception as e:
-            logging.error(f"❌ DynamoDB insert failed: {e}")
+            logging.error(f"DynamoDB insert failed: {e}")
 
     threading.Thread(target=_worker, daemon=True).start()
 
@@ -160,13 +184,13 @@ def process_incoming_flow(payload):
         "src_port": payload.get("Source Port", ""),
         "dst_port": payload.get("Destination Port", ""),
         "protocol": payload.get("Protocol", ""),
-        "timestamp": payload.get("Timestamp") or datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        "timestamp": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
     }
 
     # Combine result
     result = {
         **meta,
-        "binary_prediction": label,
+        "binary_prediction": normalize_label(label),
         "binary_confidence": conf,
         "features": features,
     }
@@ -186,7 +210,7 @@ def process_incoming_flow(payload):
 
     # Ghi CSV cục bộ (chỉ features + label)
     row = features.copy()
-    row["Label"] = label
+    row["Label"] = normalize_label(label)
     pd.DataFrame([row]).to_csv(OUTPUT_CSV, mode="a", index=False, header=not OUTPUT_CSV.exists())
 
     return result
