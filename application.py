@@ -137,7 +137,7 @@ def log_to_dynamodb_async(result):
             )
             item = {
                 "flow_id": str(result.get("flow_id", "")),
-                "time": result.get("timestamp", int(datetime.now().timestamp() * 1000)),
+                "timestamp": int(result.get("timestamp", datetime.now().timestamp() * 1000)),
                 "content": content,
                 "label": normalize_label(result.get("binary_prediction", "UNKNOWN")),
                 "features_json": json.dumps(features)
