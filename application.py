@@ -122,7 +122,7 @@ FEATURE_COLUMNS = [
 def log_to_dynamodb_async(result):
     """Ghi log lên DynamoDB ở background thread (non-blocking)."""
     if not table:
-        logging.warning("⚠️ DynamoDB table not initialized, skip log.")
+        logging.warning("DynamoDB table not initialized, skip log.")
         return
 
     def _worker():
@@ -138,7 +138,7 @@ def log_to_dynamodb_async(result):
             )
             item = {
                 "flow_id": str(result.get("flow_id", "")),
-                "timestamp": int(result.get("timestamp", datetime.now().timestamp() * 1000)),
+                "timestamp": int(result.get("timestamp_ms", datetime.now().timestamp() * 1000)),
                 "content": content,
                 "label": normalize_label(result.get("binary_prediction", "UNKNOWN")),
                 "features_json": json.dumps(features)
@@ -179,13 +179,14 @@ def process_incoming_flow(payload):
 
     # Metadata
     meta = {
-        "flow_id": payload.get("Flow ID", ""),
-        "src_ip": payload.get("Source IP", ""),
-        "dst_ip": payload.get("Destination IP", ""),
-        "src_port": payload.get("Source Port", ""),
-        "dst_port": payload.get("Destination Port", ""),
-        "protocol": payload.get("Protocol", ""),
-        "timestamp": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
+    "flow_id": payload.get("Flow ID", ""),
+    "src_ip": payload.get("Source IP", ""),
+    "dst_ip": payload.get("Destination IP", ""),
+    "src_port": payload.get("Source Port", ""),
+    "dst_port": payload.get("Destination Port", ""),
+    "protocol": payload.get("Protocol", ""),
+    "timestamp": payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
+    "timestamp_ms": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
     }
 
     # Combine result
@@ -249,5 +250,4 @@ def index():
 # ============================================================
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5001, debug=True)
-
 
