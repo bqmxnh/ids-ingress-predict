@@ -1,22 +1,21 @@
-#!/usr/bin/env python3
+import eventlet
+eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
+
 import logging
 import json
-import math
 import threading
 from datetime import datetime
-from pathlib import Path
-
 from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
 import boto3
 import httpx
-import eventlet
+
 
 # ============================================================
 # Eventlet patch (safe)
 # ============================================================
-# ⚠️ Không patch threading để tránh ảnh hưởng boto3 / httpx
+# Không patch threading để tránh ảnh hưởng boto3 / httpx
 eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
 
 # ============================================================
@@ -38,7 +37,7 @@ logging.basicConfig(
 # ============================================================
 # Config
 # ============================================================
-MODEL_API_URL = "http://34.203.76.187/predict"
+MODEL_API_URL = "http://52.73.129.151/predict"
 AWS_REGION = "us-east-1"
 
 # ============================================================
@@ -144,10 +143,12 @@ def predict_features_api(features_dict):
 # ============================================================
 def log_to_dynamodb_async(result):
     if not table:
+        logging.warning("DynamoDB table not initialized, skip log.")
         return
 
     def _worker():
         try:
+            logging.info(f"[DYNAMO TRY] Writing item for flow_id={result.get('flow_id')}")
             item = {
                 "flow_id": str(result.get("flow_id", "")),
                 "timestamp": int(result.get("timestamp_ms", datetime.now().timestamp() * 1000)),
@@ -159,11 +160,15 @@ def log_to_dynamodb_async(result):
                 ),
                 "features_json": json.dumps(result.get("features", {}))
             }
-            table.put_item(Item=item)
+
+            response = table.put_item(Item=item)
+            logging.info(f"[DYNAMO OK] Wrote flow_id={item['flow_id']} | Response={response}")
         except Exception as e:
-            logging.error(f"DynamoDB log failed: {e}")
+            import traceback
+            logging.error(f"[DYNAMO FAIL] Exception={e}\n{traceback.format_exc()}")
 
     threading.Thread(target=_worker, daemon=True).start()
+
 
 # ============================================================
 # Process flow
