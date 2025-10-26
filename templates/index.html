@@ -32,14 +32,6 @@
         transform: translateX(0);
       }
     }
-    .filter-dropdown {
-      transition: opacity 0.2s ease, transform 0.2s ease;
-    }
-    .filter-dropdown.hidden {
-      opacity: 0;
-      transform: translateY(-10px);
-      pointer-events: none;
-    }
   </style>
 </head>
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
@@ -88,18 +80,25 @@
   </div>
 
   <script>
-    const socket = io();
+    // ============================================================
+    // 🔌 Socket.IO Connection (tự động qua domain ALB)
+    // ============================================================
+    const socket = io({
+      transports: ["websocket", "polling"], // 🟢 fallback khi ALB drop websocket
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000
+    });
+
     const tbody = document.getElementById("flowBody");
     let flows = [];
     const maxFlows = 500;
 
-    // Chart setup
+    // ============================================================
+    // 📊 Chart Setup
+    // ============================================================
     const ctx = document.getElementById("flowChart").getContext("2d");
-    const chartData = {
-      labels: [],
-      attackCounts: [],
-      benignCounts: []
-    };
+    const chartData = { labels: [], attackCounts: [], benignCounts: [] };
     const flowChart = new Chart(ctx, {
       type: "line",
       data: {
@@ -109,7 +108,7 @@
             label: "ATTACK",
             data: chartData.attackCounts,
             borderColor: "#ef4444",
-            backgroundColor: "rgba(239, 68, 68, 0.2)",
+            backgroundColor: "rgba(239,68,68,0.2)",
             fill: true,
             tension: 0.4
           },
@@ -117,7 +116,7 @@
             label: "BENIGN",
             data: chartData.benignCounts,
             borderColor: "#22c55e",
-            backgroundColor: "rgba(34, 197, 94, 0.2)",
+            backgroundColor: "rgba(34,197,94,0.2)",
             fill: true,
             tension: 0.4
           }
@@ -126,9 +125,11 @@
       options: {
         responsive: true,
         maintainAspectRatio: false,
+        animation: false,
         scales: {
           x: {
-            title: { display: true, text: "Time" }
+            title: { display: true, text: "Time" },
+            ticks: { autoSkip: true, maxTicksLimit: 10 }
           },
           y: {
             title: { display: true, text: "Flow Count" },
@@ -138,6 +139,9 @@
       }
     });
 
+    // ============================================================
+    // ⚡ Update Chart
+    // ============================================================
     function updateChart(flow) {
       const now = new Date();
       const timeKey = now.toLocaleTimeString([], {
@@ -146,12 +150,11 @@
         second: "2-digit"
       });
 
-      const lastLabel = chartData.labels[chartData.labels.length - 1];
-      if (lastLabel !== timeKey) {
+      if (chartData.labels[chartData.labels.length - 1] !== timeKey) {
         chartData.labels.push(timeKey);
         chartData.attackCounts.push(0);
         chartData.benignCounts.push(0);
-        if (chartData.labels.length > 15) {
+        if (chartData.labels.length > 20) {
           chartData.labels.shift();
           chartData.attackCounts.shift();
           chartData.benignCounts.shift();
@@ -159,44 +162,48 @@
       }
 
       const idx = chartData.labels.length - 1;
-      if (flow.binary_prediction === "ATTACK") chartData.attackCounts[idx]++;
+      if (flow.binary_prediction === "attack") chartData.attackCounts[idx]++;
       else chartData.benignCounts[idx]++;
 
       flowChart.update("none");
     }
 
+    // ============================================================
+    // 🧱 Render Table Rows
+    // ============================================================
     function renderTable() {
-      tbody.innerHTML = "";
-      flows.forEach((flow) => {
-        const row = document.createElement("tr");
-        row.className =
-          "hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow";
-        const flowId = `${flow.src_ip}:${flow.src_port}->${flow.dst_ip}:${flow.dst_port}`;
-        row.innerHTML = `
-          <td class="p-3 text-sm">${flowId}</td>
+      tbody.innerHTML = flows.map(flow => `
+        <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow">
+          <td class="p-3 text-sm">${flow.flow_id}</td>
           <td class="p-3 text-sm">${flow.src_ip}</td>
           <td class="p-3 text-sm">${flow.src_port}</td>
           <td class="p-3 text-sm">${flow.dst_ip}</td>
           <td class="p-3 text-sm">${flow.dst_port}</td>
           <td class="p-3 text-sm">${flow.protocol}</td>
-          <td class="p-3 text-sm ${
-            flow.binary_prediction === "ATTACK" ? "attack" : "normal"
-          }">${flow.binary_prediction}</td>
-          <td class="p-3 text-sm">${flow.binary_confidence
-            ? flow.binary_confidence.toFixed(4)
-            : "N/A"}</td>
+          <td class="p-3 text-sm ${flow.binary_prediction === "attack" ? "attack" : "normal"}">
+            ${flow.binary_prediction.toUpperCase()}
+          </td>
+          <td class="p-3 text-sm">${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : "N/A"}</td>
           <td class="p-3 text-sm">${flow.timestamp}</td>
-        `;
-        tbody.appendChild(row);
-      });
+        </tr>
+      `).join("");
     }
 
+    // ============================================================
+    // 🔥 Receive Realtime Flow
+    // ============================================================
     socket.on("new_flow", (flow) => {
       flows.unshift(flow);
       if (flows.length > maxFlows) flows.pop();
       updateChart(flow);
       renderTable();
     });
+
+    // ============================================================
+    // ⚠️ Connection Status
+    // ============================================================
+    socket.on("connect", () => console.log("✅ Connected to IDS Dashboard"));
+    socket.on("disconnect", () => console.warn("⚠️ Lost connection. Reconnecting..."));
   </script>
 </body>
 </html>
