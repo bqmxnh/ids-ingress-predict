@@ -4,6 +4,7 @@ eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False
 import logging
 import json
 import threading
+import math
 from datetime import datetime
 from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO
@@ -37,7 +38,7 @@ logging.basicConfig(
 # ============================================================
 # Config
 # ============================================================
-MODEL_API_URL = "http://52.73.129.151/predict"
+MODEL_API_URL = "http://34.203.76.187/predict"
 AWS_REGION = "us-east-1"
 
 # ============================================================
@@ -61,12 +62,16 @@ flow_results_lock = threading.Lock()
 # Helper functions
 # ============================================================
 def safe(val):
+    """Chuyển giá trị sang float an toàn, tránh NaN/Inf."""
     try:
         if val is None:
             return 0.0
         if isinstance(val, bool):
             return float(int(val))
-        return float(val)
+        f = float(val)
+        if math.isnan(f) or math.isinf(f):
+            return 0.0
+        return f
     except Exception:
         return 0.0
 
@@ -119,7 +124,7 @@ FEATURE_COLUMNS = [
 # ============================================================
 def predict_features_api(features_dict):
     try:
-        # Log features được gửi đi
+        # Log features gửi đi
         logging.info(f"[API SEND] Sending features to model: {json.dumps(features_dict, ensure_ascii=False)[:2000]}")
 
         with httpx.Client(timeout=8.0) as client:
@@ -174,7 +179,16 @@ def log_to_dynamodb_async(result):
 # Process flow
 # ============================================================
 def process_incoming_flow(payload):
+    # Làm sạch toàn bộ features
     features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
+
+    # Dọn dẹp lại toàn bộ giá trị NaN/Inf nếu có
+    for k, v in features.items():
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            logging.debug(f"[CLEAN] Replaced invalid value {v} for {k} → 0.0")
+            features[k] = 0.0
+
+    # Gửi đi dự đoán
     label, conf = predict_features_api(features)
 
     result = {
