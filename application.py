@@ -44,6 +44,7 @@ MODEL_API_URL = "http://52.73.129.151/predict"  # FastAPI/ML model endpoint
 try:
     dynamodb = boto3.resource("dynamodb", region_name="us-east-1")
     table = dynamodb.Table("ids_log_system")
+    logging.info("✅ DynamoDB connected successfully")
 except Exception as e:
     logging.error(f"DynamoDB initialization failed: {e}")
     table = None
@@ -55,19 +56,27 @@ flow_results = []
 flow_results_lock = threading.Lock()
 
 # ============================================================
-# Helper: Safe numeric conversion
+# Helper: Safe numeric conversion + detect abnormal values
 # ============================================================
 def safe(val):
     try:
         if val is None:
-            return 0
+            return 0.0
         if isinstance(val, bool):
-            return int(val)
-        if isinstance(val, (int, float)):
-            return float(val)
-        return float(val)
+            return float(int(val))
+        num = float(val)
+        # Kiểm tra NaN hoặc vô cực
+        if math.isnan(num) or math.isinf(num):
+            logging.warning(f"[NaN/Inf Detected] Replaced with 0 → {val}")
+            return 0.0
+        # Kiểm tra giá trị cực lớn hoặc cực nhỏ
+        if abs(num) > 1e308:
+            logging.warning(f"[OutOfRange] Value too large ({val}), replaced with 0")
+            return 0.0
+        return num
     except Exception:
-        return 0
+        logging.warning(f"[InvalidValue] Cannot convert {val}, replaced with 0")
+        return 0.0
 
 # ============================================================
 # Helper: Convert datetime string → timestamp (milliseconds)
@@ -139,9 +148,10 @@ def log_to_dynamodb_async(result):
                 "timestamp": int(result.get("timestamp_ms", datetime.now().timestamp() * 1000)),
                 "content": content,
                 "label": normalize_label(result.get("binary_prediction", "UNKNOWN")),
-                "features_json": json.dumps(features)
+                "features_json": json.dumps(features, allow_nan=False)
             }
             table.put_item(Item=item)
+            logging.info(f"[DynamoDB] Logged flow_id={item['flow_id']} label={item['label']}")
         except Exception as e:
             logging.error(f"DynamoDB insert failed: {e}")
 
@@ -157,6 +167,7 @@ def predict_features_api(features_dict):
         data = response.json()
         label = data.get("prediction") or data.get("label", "UNKNOWN")
         confidence = data.get("confidence") or data.get("probability", None)
+        logging.info(f"[Model API] Prediction={label}, Confidence={confidence}")
         return label, confidence
     except Exception as e:
         logging.error(f"Predict API error: {e}")
@@ -166,8 +177,10 @@ def predict_features_api(features_dict):
 # Process a single incoming flow
 # ============================================================
 def process_incoming_flow(payload):
+    # ✅ Clean & validate features
     features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
     label, conf = predict_features_api(features)
+
     meta = {
         "flow_id": payload.get("Flow ID", ""),
         "src_ip": payload.get("Source IP", ""),
@@ -179,7 +192,12 @@ def process_incoming_flow(payload):
         "timestamp_ms": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
     }
 
-    result = {**meta, "binary_prediction": normalize_label(label), "binary_confidence": conf, "features": features}
+    result = {
+        **meta,
+        "binary_prediction": normalize_label(label),
+        "binary_confidence": conf,
+        "features": features,
+    }
 
     with flow_results_lock:
         flow_results.append(result)
@@ -188,7 +206,7 @@ def process_incoming_flow(payload):
 
     try:
         socketio.emit("new_flow", result, to=None, namespace="/")
-        logging.info(f"[EMIT] Sent new_flow for {result.get('flow_id')}")
+        logging.info(f"[EMIT] Flow={result['flow_id']} Label={result['binary_prediction']} Conf={result['binary_confidence']}")
         eventlet.sleep(0.001)
     except Exception:
         logging.exception("SocketIO emit failed")
