@@ -187,7 +187,8 @@ def process_incoming_flow(payload):
             flow_results.pop(0)
 
     try:
-        socketio.emit("new_flow", result, broadcast=True, namespace="/")
+        socketio.emit("new_flow", result, to=None, namespace="/")
+        logging.info(f"[EMIT] Sent new_flow for {result.get('flow_id')}")
         eventlet.sleep(0.001)
     except Exception:
         logging.exception("SocketIO emit failed")
