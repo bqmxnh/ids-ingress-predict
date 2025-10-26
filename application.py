@@ -1,4 +1,3 @@
-
 import pandas as pd
 import logging
 import requests
@@ -10,11 +9,19 @@ import threading
 import math
 import boto3
 import json
+import eventlet
+eventlet.monkey_patch()
 
 # ============================================================
 # Flask App Setup
 # ============================================================
 app = Flask(__name__)
+
+# ✅ Cho phép Flask hiểu header từ ALB (X-Forwarded-For, X-Proto)
+from werkzeug.middleware.proxy_fix import ProxyFix
+app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
+
+# ✅ SocketIO (hỗ trợ WebSocket qua ALB)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # ============================================================
@@ -30,6 +37,7 @@ logging.basicConfig(
 # Configuration
 # ============================================================
 MODEL_API_URL = "http://52.73.129.151/predict"  # FastAPI/ML model endpoint
+
 # ============================================================
 # DynamoDB Setup
 # ============================================================
@@ -65,7 +73,6 @@ def safe(val):
 # Helper: Convert datetime string → timestamp (milliseconds)
 # ============================================================
 def to_timestamp_ms(dt_str):
-    """Convert datetime string 'YYYY-MM-DD HH:MM:SS.ssssss' to milliseconds since epoch."""
     try:
         dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S.%f")
         return int(dt.timestamp() * 1000)
@@ -77,10 +84,9 @@ def to_timestamp_ms(dt_str):
             return int(datetime.now().timestamp() * 1000)
 
 # ============================================================
-# Helper: Normalize label to lowercase
+# Helper: Normalize label
 # ============================================================
 def normalize_label(label):
-    """Convert label like 'BENIGN' or 'ATTACK' to lowercase ('benign', 'attack')."""
     if not isinstance(label, str):
         return "unknown"
     return label.strip().lower()
@@ -115,7 +121,6 @@ FEATURE_COLUMNS = [
 # DynamoDB Logging (Async)
 # ============================================================
 def log_to_dynamodb_async(result):
-    """Ghi log lên DynamoDB ở background thread (non-blocking)."""
     if not table:
         logging.warning("⚠️ DynamoDB table not initialized, skip log.")
         return
@@ -127,9 +132,7 @@ def log_to_dynamodb_async(result):
                 f"Src: {result.get('src_ip')}:{result.get('src_port')} → "
                 f"Dst: {result.get('dst_ip')}:{result.get('dst_port')} ({result.get('protocol')}), "
                 f"Confidence: {result.get('binary_confidence', 0):.3f}, "
-                f"Flow ID: {result.get('flow_id')}, "
-                f"Bytes/s: {features.get('Flow Bytes/s', 0)}, "
-                f"Pkts/s: {features.get('Flow Packets/s', 0)}"
+                f"Flow ID: {result.get('flow_id')}"
             )
             item = {
                 "flow_id": str(result.get("flow_id", "")),
@@ -139,7 +142,6 @@ def log_to_dynamodb_async(result):
                 "features_json": json.dumps(features)
             }
             table.put_item(Item=item)
-            logging.info(f"Logged flow {item['flow_id']} to DynamoDB.")
         except Exception as e:
             logging.error(f"DynamoDB insert failed: {e}")
 
@@ -149,7 +151,6 @@ def log_to_dynamodb_async(result):
 # Prediction via external model API
 # ============================================================
 def predict_features_api(features_dict):
-    """Send features to external model API for prediction."""
     try:
         response = requests.post(MODEL_API_URL, json={"features": features_dict}, timeout=8)
         response.raise_for_status()
@@ -165,14 +166,8 @@ def predict_features_api(features_dict):
 # Process a single incoming flow
 # ============================================================
 def process_incoming_flow(payload):
-    """Process one flow or feature set received from /ingest_flow."""
-    # Extract 77 features
     features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
-
-    # Predict via external ML model
     label, conf = predict_features_api(features)
-
-    # Metadata
     meta = {
         "flow_id": payload.get("Flow ID", ""),
         "src_ip": payload.get("Source IP", ""),
@@ -184,36 +179,27 @@ def process_incoming_flow(payload):
         "timestamp_ms": to_timestamp_ms(payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))),
     }
 
-    # Combine result
-    result = {
-        **meta,
-        "binary_prediction": normalize_label(label),
-        "binary_confidence": conf,
-        "features": features,
-    }
+    result = {**meta, "binary_prediction": normalize_label(label), "binary_confidence": conf, "features": features}
 
-    # Emit realtime to dashboard
     with flow_results_lock:
         flow_results.append(result)
         if len(flow_results) > 1000:
             flow_results.pop(0)
+
     try:
-        socketio.emit("new_flow", result)
+        socketio.emit("new_flow", result, broadcast=True, namespace="/")
+        eventlet.sleep(0.001)
     except Exception:
         logging.exception("SocketIO emit failed")
 
-    # Ghi log song song lên DynamoDB
     log_to_dynamodb_async(result)
-
     return result
-
 
 # ============================================================
 # Endpoint: /ingest_flow
 # ============================================================
 @app.route("/ingest_flow", methods=["POST"])
 def ingest_flow():
-    """Receive single flow or batch from machine A."""
     try:
         payload = request.get_json(force=True)
         if payload is None:
@@ -237,8 +223,7 @@ def index():
     return render_template("index.html")
 
 # ============================================================
-# Main entry point
+# Main entry point (Eventlet server)
 # ============================================================
 if __name__ == "__main__":
-    socketio.run(app, host="0.0.0.0", port=5001, debug=True)
-
+    socketio.run(app, host="0.0.0.0", port=5001, debug=False)
