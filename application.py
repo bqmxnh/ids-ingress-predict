@@ -11,7 +11,7 @@ from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
 import boto3
 import httpx
-
+import os
 
 # ============================================================
 # Eventlet patch (safe)
@@ -38,7 +38,8 @@ logging.basicConfig(
 # ============================================================
 # Config
 # ============================================================
-MODEL_API_URL = "http://54.152.26.27/predict"
+ec2_api_ip = os.getenv("EC2_API_IP")
+MODEL_API_URL = f"http://{ec2_api_ip}/predict"
 AWS_REGION = "us-east-1"
 
 # ============================================================
