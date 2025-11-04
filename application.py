@@ -1,50 +1,46 @@
-import os
-import math
-import json
+import eventlet
+eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
+
 import logging
+import json
 import threading
+import math
 from datetime import datetime
+from flask import Flask, request, jsonify, render_template
+from flask_socketio import SocketIO
+from werkzeug.middleware.proxy_fix import ProxyFix
+import boto3
+import httpx
+import os
 
 # ============================================================
-# Monkey patch (Eventlet)
+# Eventlet patch (safe)
 # ============================================================
-import eventlet
+# Không patch threading để tránh ảnh hưởng boto3 / httpx
 eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
 
 # ============================================================
 # Flask + SocketIO Setup
 # ============================================================
-from flask import Flask, request, jsonify, render_template
-from flask_socketio import SocketIO
-from werkzeug.middleware.proxy_fix import ProxyFix
-
-import boto3
-import httpx
-from dotenv import load_dotenv
-
-# ============================================================
-# Load environment variables
-# ============================================================
-load_dotenv()
-MODEL_API_URL = os.getenv("MODEL_API_URL", "http://localhost:5000/predict")
-AWS_REGION = os.getenv("AWS_REGION", "us-east-1")
-
-# ============================================================
-# Logging setup
-# ============================================================
-logging.basicConfig(
-    filename='ids.log',
-    level=logging.INFO,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
-logging.info(f"Starting IDS Agent | MODEL_API_URL={MODEL_API_URL}")
-
-# ============================================================
-# Flask Application setup
-# ============================================================
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 socketio = SocketIO(app, cors_allowed_origins="*")
+
+# ============================================================
+# Logging
+# ============================================================
+logging.basicConfig(
+    filename='ids.log',
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(message)s'
+)
+
+# ============================================================
+# Config
+# ============================================================
+MODEL_API_URL = os.getenv("MODEL_API_URL", "http://localhost:5000/predict")
+logging.info(f"Using MODEL_API_URL={MODEL_API_URL}")
+AWS_REGION = "us-east-1"
 
 # ============================================================
 # DynamoDB Setup
@@ -52,22 +48,22 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 try:
     dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
     table = dynamodb.Table("ids_log_system")
-    logging.info("✅ Connected to DynamoDB")
+    logging.info("Connected to DynamoDB")
 except Exception as e:
     table = None
-    logging.error(f"❌ DynamoDB init failed: {e}")
+    logging.error(f"DynamoDB init failed: {e}")
 
 # ============================================================
-# Thread-safe cache for real-time dashboard
+# Thread-safe cache
 # ============================================================
 flow_results = []
 flow_results_lock = threading.Lock()
 
 # ============================================================
-# Helper Functions
+# Helper functions
 # ============================================================
 def safe(val):
-    """Convert safely to float, avoid NaN/Inf."""
+    """Chuyển giá trị sang float an toàn, tránh NaN/Inf."""
     try:
         if val is None:
             return 0.0
@@ -82,7 +78,6 @@ def safe(val):
 
 
 def to_timestamp_ms(dt_str):
-    """Convert datetime string to timestamp in milliseconds."""
     try:
         dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S.%f")
     except Exception:
@@ -98,8 +93,9 @@ def normalize_label(label):
         return "unknown"
     return label.strip().lower()
 
+
 # ============================================================
-# Feature Columns
+# Feature columns
 # ============================================================
 FEATURE_COLUMNS = [
     "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
@@ -125,34 +121,40 @@ FEATURE_COLUMNS = [
 ]
 
 # ============================================================
-# Prediction via external API
+# Prediction via external model (httpx)
 # ============================================================
 def predict_features_api(features_dict):
-    """Send features to ARF API and return (label, confidence)."""
     try:
-        with httpx.Client(timeout=10.0) as client:
+        # Log features gửi đi
+        logging.info(f"[API SEND] Sending features to model: {json.dumps(features_dict, ensure_ascii=False)[:2000]}")
+
+        with httpx.Client(timeout=8.0) as client:
             response = client.post(MODEL_API_URL, json={"features": features_dict})
+
+        # Log response trả về
         data = response.json()
+        logging.info(f"[API RECV] Model response: {data}")
 
         label = data.get("prediction") or data.get("label", "unknown")
         conf = data.get("confidence") or data.get("probability", 0.0)
-        logging.info(f"[API RECV] Prediction={label}, Confidence={conf:.3f}")
         return normalize_label(label), conf
 
     except Exception as e:
         logging.error(f"Predict API error: {e}")
         return "error", 0.0
 
+
 # ============================================================
-# Async logging to DynamoDB
+# Log to DynamoDB (async)
 # ============================================================
 def log_to_dynamodb_async(result):
     if not table:
-        logging.warning("DynamoDB not initialized, skip log.")
+        logging.warning("DynamoDB table not initialized, skip log.")
         return
 
     def _worker():
         try:
+            logging.info(f"[DYNAMO TRY] Writing item for flow_id={result.get('flow_id')}")
             item = {
                 "flow_id": str(result.get("flow_id", "")),
                 "timestamp": int(result.get("timestamp_ms", datetime.now().timestamp() * 1000)),
@@ -164,21 +166,32 @@ def log_to_dynamodb_async(result):
                 ),
                 "features_json": json.dumps(result.get("features", {}))
             }
-            table.put_item(Item=item)
-            logging.info(f"[DYNAMO OK] Logged flow_id={item['flow_id']}")
+
+            response = table.put_item(Item=item)
+            logging.info(f"[DYNAMO OK] Wrote flow_id={item['flow_id']} | Response={response}")
         except Exception as e:
-            logging.error(f"[DYNAMO FAIL] {e}")
+            import traceback
+            logging.error(f"[DYNAMO FAIL] Exception={e}\n{traceback.format_exc()}")
 
     threading.Thread(target=_worker, daemon=True).start()
 
+
 # ============================================================
-# Flow processing pipeline
+# Process flow
 # ============================================================
 def process_incoming_flow(payload):
-    """Handle 1 flow sample from /ingest_flow."""
+    # Làm sạch toàn bộ features
     features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
 
+    # Dọn dẹp lại toàn bộ giá trị NaN/Inf nếu có
+    for k, v in features.items():
+        if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
+            logging.debug(f"[CLEAN] Replaced invalid value {v} for {k} → 0.0")
+            features[k] = 0.0
+
+    # Gửi đi dự đoán
     label, conf = predict_features_api(features)
+
     result = {
         "flow_id": payload.get("Flow ID", ""),
         "src_ip": payload.get("Source IP", ""),
@@ -208,36 +221,32 @@ def process_incoming_flow(payload):
     return result
 
 # ============================================================
-# Flask routes
+# Endpoint: /ingest_flow
 # ============================================================
 @app.route("/ingest_flow", methods=["POST"])
 def ingest_flow():
-    """Receive flow record(s) from csv_playback or NFStream agent."""
     try:
         payload = request.get_json(force=True)
         if payload is None:
             return jsonify({"error": "No JSON body"}), 400
-
         if "batch" in payload:
             results = [process_incoming_flow(p) for p in payload["batch"]]
             return jsonify({"results": results}), 200
-
-        result = process_incoming_flow(payload)
-        return jsonify(result), 200
-
+        return jsonify(process_incoming_flow(payload)), 200
     except Exception as e:
         logging.exception("Ingest error")
         return jsonify({"error": str(e)}), 500
 
-
+# ============================================================
+# Root route
+# ============================================================
 @app.route("/")
 def index():
     return render_template("index.html")
 
 # ============================================================
-# Entry point
+# Main
 # ============================================================
 if __name__ == "__main__":
-    logging.info("🚀 IDS Ingress Server starting on port 5001 ...")
-    logging.info(f"Using MODEL_API_URL={MODEL_API_URL}")
+    logging.info("IDS Ingress Server starting on port 5001 ...")
     socketio.run(app, host="0.0.0.0", port=5001)
