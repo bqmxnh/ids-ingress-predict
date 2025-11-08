@@ -121,14 +121,15 @@ FEATURE_COLUMNS = [
 # ============================================================
 # Prediction via external model (httpx)
 # ============================================================
-def predict_features_api(features_dict):
+def predict_features_api(flow_id, features_dict):
+    """Gửi flow_id và features đến model API"""
     try:
-        logging.info(f"[API SEND] Sending features to model: {json.dumps(features_dict, ensure_ascii=False)[:2000]}")
+        payload = {"flow_id": flow_id, "features": features_dict}
+        logging.info(f"[API SEND] {json.dumps(payload, ensure_ascii=False)[:2000]}")
         with httpx.Client(timeout=8.0) as client:
-            response = client.post(MODEL_API_URL, json={"features": features_dict})
+            response = client.post(MODEL_API_URL, json=payload)
         data = response.json()
         logging.info(f"[API RECV] Model response: {data}")
-
         label = data.get("prediction") or data.get("label", "unknown")
         conf = data.get("confidence") or data.get("probability", 0.0)
         return normalize_label(label), conf
@@ -162,7 +163,7 @@ def log_to_dynamodb_async(result):
             logging.info(f"[DYNAMO OK] Wrote flow_id={item['flow_id']} | Response={response}")
         except Exception as e:
             import traceback
-            logging.error(f"[DYNAMO FAIL] Exception={e}\n{traceback.format_exc()}")
+            logging.error(f"[DYNAMO FAIL] {e}\n{traceback.format_exc()}")
 
     threading.Thread(target=_worker, daemon=True).start()
 
@@ -175,10 +176,11 @@ def process_incoming_flow(payload):
         if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
             features[k] = 0.0
 
-    label, conf = predict_features_api(features)
+    flow_id = payload.get("Flow ID", "")
+    label, conf = predict_features_api(flow_id, features)
 
     result = {
-        "flow_id": payload.get("Flow ID", ""),
+        "flow_id": flow_id,
         "src_ip": payload.get("Source IP", ""),
         "dst_ip": payload.get("Destination IP", ""),
         "src_port": payload.get("Source Port", ""),
@@ -206,13 +208,13 @@ def process_incoming_flow(payload):
     return result
 
 # ============================================================
-# Endpoint: /ingest_flow
+# Endpoints
 # ============================================================
 @app.route("/ingest_flow", methods=["POST"])
 def ingest_flow():
     try:
         payload = request.get_json(force=True)
-        if payload is None:
+        if not payload:
             return jsonify({"error": "No JSON body"}), 400
         if "batch" in payload:
             results = [process_incoming_flow(p) for p in payload["batch"]]
@@ -222,9 +224,7 @@ def ingest_flow():
         logging.exception("Ingest error")
         return jsonify({"error": str(e)}), 500
 
-# ============================================================
-# Endpoint: /feedback_flow
-# ============================================================
+
 @app.route("/feedback_flow", methods=["POST"])
 def feedback_flow():
     """Forward feedback (flow_id + true_label) đến Model API /feedback"""
@@ -247,21 +247,16 @@ def feedback_flow():
 
         logging.info(f"[FEEDBACK] Forwarded to model API: {data}")
         return jsonify({"status": "feedback_forwarded", "result": data}), 200
-
     except Exception as e:
         logging.exception("Feedback forward error")
         return jsonify({"error": str(e)}), 500
 
-# ============================================================
-# Root route
-# ============================================================
+
 @app.route("/")
 def index():
     return render_template("index.html")
 
-# ============================================================
-# Main
-# ============================================================
+
 if __name__ == "__main__":
     logging.info("IDS Ingress Server starting on port 5001 ...")
     socketio.run(app, host="0.0.0.0", port=5001)
