@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import eventlet
 eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
 
@@ -12,12 +13,6 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import boto3
 import httpx
 import os
-
-# ============================================================
-# Eventlet patch (safe)
-# ============================================================
-# Không patch threading để tránh ảnh hưởng boto3 / httpx
-eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
 
 # ============================================================
 # Flask + SocketIO Setup
@@ -39,8 +34,11 @@ logging.basicConfig(
 # Config
 # ============================================================
 MODEL_API_URL = os.getenv("MODEL_API_URL", "http://localhost:5000/predict")
-logging.info(f"Using MODEL_API_URL={MODEL_API_URL}")
+FEEDBACK_API_URL = os.getenv("FEEDBACK_API_URL", "http://localhost:5000/feedback")
 AWS_REGION = "us-east-1"
+
+logging.info(f"Using MODEL_API_URL={MODEL_API_URL}")
+logging.info(f"Using FEEDBACK_API_URL={FEEDBACK_API_URL}")
 
 # ============================================================
 # DynamoDB Setup
@@ -93,11 +91,11 @@ def normalize_label(label):
         return "unknown"
     return label.strip().lower()
 
-
 # ============================================================
-# Feature columns
+# Feature columns (đã thêm "Protocol")
 # ============================================================
 FEATURE_COLUMNS = [
+    "Protocol",
     "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
     "Total Length of Fwd Packets", "Total Length of Bwd Packets",
     "Fwd Packet Length Max", "Fwd Packet Length Min", "Fwd Packet Length Mean", "Fwd Packet Length Std",
@@ -125,24 +123,18 @@ FEATURE_COLUMNS = [
 # ============================================================
 def predict_features_api(features_dict):
     try:
-        # Log features gửi đi
         logging.info(f"[API SEND] Sending features to model: {json.dumps(features_dict, ensure_ascii=False)[:2000]}")
-
         with httpx.Client(timeout=8.0) as client:
             response = client.post(MODEL_API_URL, json={"features": features_dict})
-
-        # Log response trả về
         data = response.json()
         logging.info(f"[API RECV] Model response: {data}")
 
         label = data.get("prediction") or data.get("label", "unknown")
         conf = data.get("confidence") or data.get("probability", 0.0)
         return normalize_label(label), conf
-
     except Exception as e:
         logging.error(f"Predict API error: {e}")
         return "error", 0.0
-
 
 # ============================================================
 # Log to DynamoDB (async)
@@ -166,7 +158,6 @@ def log_to_dynamodb_async(result):
                 ),
                 "features_json": json.dumps(result.get("features", {}))
             }
-
             response = table.put_item(Item=item)
             logging.info(f"[DYNAMO OK] Wrote flow_id={item['flow_id']} | Response={response}")
         except Exception as e:
@@ -175,21 +166,15 @@ def log_to_dynamodb_async(result):
 
     threading.Thread(target=_worker, daemon=True).start()
 
-
 # ============================================================
 # Process flow
 # ============================================================
 def process_incoming_flow(payload):
-    # Làm sạch toàn bộ features
     features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
-
-    # Dọn dẹp lại toàn bộ giá trị NaN/Inf nếu có
     for k, v in features.items():
         if isinstance(v, float) and (math.isnan(v) or math.isinf(v)):
-            logging.debug(f"[CLEAN] Replaced invalid value {v} for {k} → 0.0")
             features[k] = 0.0
 
-    # Gửi đi dự đoán
     label, conf = predict_features_api(features)
 
     result = {
@@ -235,6 +220,36 @@ def ingest_flow():
         return jsonify(process_incoming_flow(payload)), 200
     except Exception as e:
         logging.exception("Ingest error")
+        return jsonify({"error": str(e)}), 500
+
+# ============================================================
+# Endpoint: /feedback_flow
+# ============================================================
+@app.route("/feedback_flow", methods=["POST"])
+def feedback_flow():
+    """Forward feedback (flow_id + true_label) đến Model API /feedback"""
+    try:
+        payload = request.get_json(force=True)
+        if not payload:
+            return jsonify({"error": "No JSON body"}), 400
+
+        with httpx.Client(timeout=8.0) as client:
+            response = client.post(FEEDBACK_API_URL, json=payload)
+        data = response.json()
+
+        socketio.emit("feedback_event", {
+            "flow_id": payload.get("Flow ID", ""),
+            "true_label": payload.get("true_label", ""),
+            "status": "forwarded",
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
+        eventlet.sleep(0)
+
+        logging.info(f"[FEEDBACK] Forwarded to model API: {data}")
+        return jsonify({"status": "feedback_forwarded", "result": data}), 200
+
+    except Exception as e:
+        logging.exception("Feedback forward error")
         return jsonify({"error": str(e)}), 500
 
 # ============================================================
