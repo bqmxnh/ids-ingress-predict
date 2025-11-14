@@ -155,28 +155,32 @@ def feedback_flow():
     try:
         p = request.get_json(force=True)
 
+        feedback_payload = {
+            "Flow ID": p.get("Flow ID"),
+            "true_label": p.get("true_label"),
+            "features": p.get("features", {})
+        }
+
         with httpx.Client(timeout=8.0) as c:
-            r = c.post(FEEDBACK_API_URL, json=p)
+            r = c.post(FEEDBACK_API_URL, json=feedback_payload)
+
         data = r.json()
 
-        # emit feedback highlight
         socketio.emit("feedback_event", {
             "flow_id": p.get("Flow ID"),
             "true_label": p.get("true_label"),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
-        eventlet.sleep(0)
 
-        # nếu model cho learned=true → highlight đỏ
         if data.get("learned") is True:
             socketio.emit("learn_event", data)
-            eventlet.sleep(0)
 
         return jsonify({"status": "ok", "model_response": data}), 200
 
     except Exception as e:
         logging.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/")
 def index():
