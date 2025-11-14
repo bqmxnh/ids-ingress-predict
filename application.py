@@ -14,73 +14,46 @@ import boto3
 import httpx
 import os
 
-# ============================================================
-# Flask
-# ============================================================
+# Flask Setup
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# ============================================================
-# Logging
-# ============================================================
-logging.basicConfig(
-    filename='ids.log',
-    level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(message)s'
-)
+logging.basicConfig(filename='ids.log', level=logging.DEBUG,
+                    format='%(asctime)s [%(levelname)s] %(message)s')
 
-# ============================================================
-# Config
-# ============================================================
 MODEL_API_URL = "http://api.qmuit.id.vn/predict"
 FEEDBACK_API_URL = "http://api.qmuit.id.vn/feedback"
 AWS_REGION = "us-east-1"
 
-logging.info(f"Using MODEL_API_URL={MODEL_API_URL}")
-logging.info(f"Using FEEDBACK_API_URL={FEEDBACK_API_URL}")
-
-# ============================================================
-# DynamoDB
-# ============================================================
 try:
     dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
     table = dynamodb.Table("ids_log_system")
-    logging.info("Connected to DynamoDB")
 except:
     table = None
 
-# ============================================================
-# Helper
-# ============================================================
-def safe(val):
+flow_results = []
+flow_lock = threading.Lock()
+
+def safe(v):
     try:
-        if val is None: return 0.0
-        if isinstance(val, bool): return float(int(val))
-        f = float(val)
-        if math.isnan(f) or math.isinf(f): return 0.0
+        f = float(v)
+        if math.isnan(f) or math.isinf(f):
+            return 0.0
         return f
     except:
         return 0.0
 
-def to_timestamp_ms(dt_str):
+def normalize_label(l):
+    if not isinstance(l, str): return "unknown"
+    return l.lower().strip()
+
+def to_ms(ts):
     try:
-        dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S.%f")
+        return int(datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").timestamp()*1000)
     except:
-        try:
-            dt = datetime.strptime(dt_str, "%Y-%m-%d %H:%M:%S")
-        except:
-            dt = datetime.now()
-    return int(dt.timestamp() * 1000)
+        return int(datetime.now().timestamp()*1000)
 
-def normalize_label(label):
-    if not isinstance(label, str):
-        return "unknown"
-    return label.strip().lower()
-
-# ============================================================
-# Features
-# ============================================================
 FEATURE_COLUMNS = [
     "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
     "Total Length of Fwd Packets", "Total Length of Bwd Packets",
@@ -99,102 +72,115 @@ FEATURE_COLUMNS = [
     "Fwd Avg Bytes/Bulk", "Fwd Avg Packets/Bulk", "Fwd Avg Bulk Rate",
     "Bwd Avg Bytes/Bulk", "Bwd Avg Packets/Bulk", "Bwd Avg Bulk Rate",
     "Subflow Fwd Packets", "Subflow Fwd Bytes", "Subflow Bwd Packets", "Subflow Bwd Bytes",
-    "Init_Win_bytes_forward", "Init_Win_bytes_backward",
-    "act_data_pkt_fwd", "min_seg_size_forward",
+    "Init_Win_bytes_forward", "Init_Win_bytes_backward", "act_data_pkt_fwd", "min_seg_size_forward",
     "Active Mean", "Active Std", "Active Max", "Active Min",
     "Idle Mean", "Idle Std", "Idle Max", "Idle Min"
 ]
 
-# ============================================================
-# Predict → Model API
-# ============================================================
-def predict_features_api(flow_id, features):
+def predict_api(flow_id, features):
     try:
-        with httpx.Client(timeout=8) as client:
-            response = client.post(MODEL_API_URL, json={
-                "flow_id": flow_id,
-                "features": features
-            })
-        data = response.json()
-        return normalize_label(data.get("prediction")), data.get("confidence", 0.0)
+        payload = {"flow_id": flow_id, "features": features}
+        with httpx.Client(timeout=8.0) as c:
+            r = c.post(MODEL_API_URL, json=payload)
+        data = r.json()
+        label = normalize_label(data.get("prediction", "unknown"))
+        conf = data.get("confidence", 0.0)
+        return label, conf
     except Exception as e:
-        logging.error(f"Predict error: {e}")
+        logging.error(f"Predict API error: {e}")
         return "error", 0.0
 
-# ============================================================
-# Process Flow
-# ============================================================
-def process_incoming_flow(payload):
-    features = {c: safe(payload.get(c, 0)) for c in FEATURE_COLUMNS}
+def log_async(result):
+    if not table: return
+    def worker():
+        try:
+            table.put_item(Item={
+                "flow_id": str(result["flow_id"]),
+                "timestamp": result["timestamp_ms"],
+                "label": normalize_label(result["binary_prediction"]),
+                "content": f"{result['src_ip']}:{result['src_port']} → {result['dst_ip']}:{result['dst_port']} ({result['protocol']}) - {result['binary_confidence']}",
+                "features_json": json.dumps(result["features"])
+            })
+        except Exception as e:
+            logging.error(f"DynamoDB error: {e}")
+    threading.Thread(target=worker, daemon=True).start()
 
-    flow_id = payload.get("Flow ID", "")
-    label, conf = predict_features_api(flow_id, features)
+def process_flow(p):
+    features = {f: safe(p.get(f, 0)) for f in FEATURE_COLUMNS}
+
+    flow_id = p.get("Flow ID", "")
+    label, conf = predict_api(flow_id, features)
 
     result = {
         "flow_id": flow_id,
-        "src_ip": payload.get("Source IP", ""),
-        "dst_ip": payload.get("Destination IP", ""),
-        "src_port": payload.get("Source Port", ""),
-        "dst_port": payload.get("Destination Port", ""),
-        "protocol": payload.get("Protocol", ""),
-        "timestamp": payload.get("Timestamp", datetime.now().strftime("%Y-%m-%d %H:%M:%S")),
-        "timestamp_ms": to_timestamp_ms(payload.get("Timestamp", "")),
+        "src_ip": p.get("Source IP", ""),
+        "dst_ip": p.get("Destination IP", ""),
+        "src_port": p.get("Source Port", ""),
+        "dst_port": p.get("Destination Port", ""),
+        "protocol": p.get("Protocol", ""),
+        "timestamp": p.get("Timestamp"),
+        "timestamp_ms": to_ms(p.get("Timestamp")),
         "binary_prediction": label,
         "binary_confidence": conf,
         "features": features,
     }
 
-    socketio.emit("new_flow", result)
-    eventlet.sleep(0)
+    with flow_lock:
+        flow_results.append(result)
+        if len(flow_results) > 1000: flow_results.pop(0)
 
+    try:
+        socketio.emit("new_flow", result)
+        eventlet.sleep(0)
+    except:
+        logging.error("Socket emit failed")
+
+    log_async(result)
     return result
 
-# ============================================================
-# Endpoints
-# ============================================================
 @app.route("/ingest_flow", methods=["POST"])
 def ingest_flow():
-    payload = request.get_json(force=True)
-    if not payload:
-        return jsonify({"error": "No JSON"}), 400
+    try:
+        p = request.get_json(force=True)
+        if "batch" in p:
+            return jsonify({"results": [process_flow(x) for x in p["batch"]]}), 200
+        return jsonify(process_flow(p)), 200
 
-    if "batch" in payload:
-        return jsonify({"results": [process_incoming_flow(p)
-                                    for p in payload["batch"]]}), 200
-    return jsonify(process_incoming_flow(payload)), 200
+    except Exception as e:
+        logging.error(f"Ingest error: {e}")
+        return jsonify({"error": str(e)}), 500
 
-
-# ============================================================
-# Feedback → Forward full JSON
-# ============================================================
 @app.route("/feedback_flow", methods=["POST"])
 def feedback_flow():
     try:
-        payload = request.get_json(force=True)
+        p = request.get_json(force=True)
 
-        with httpx.Client(timeout=8.0) as client:
-            response = client.post(FEEDBACK_API_URL, json=payload)
+        with httpx.Client(timeout=8.0) as c:
+            r = c.post(FEEDBACK_API_URL, json=p)
+        data = r.json()
 
-        data = response.json()  # FULL FEEDBACK INFO
-
-        # emit full data
-        socketio.emit("feedback_event", data)
+        # emit feedback highlight
+        socketio.emit("feedback_event", {
+            "flow_id": p.get("Flow ID"),
+            "true_label": p.get("true_label"),
+            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        })
         eventlet.sleep(0)
 
-        logging.info(f"[FEEDBACK] Forwarded: {data}")
+        # nếu model cho learned=true → highlight đỏ
+        if data.get("learned") is True:
+            socketio.emit("learn_event", data)
+            eventlet.sleep(0)
 
-        return jsonify({"status": "forwarded", "model_response": data}), 200
+        return jsonify({"status": "ok", "model_response": data}), 200
 
     except Exception as e:
-        logging.error(e, exc_info=True)
+        logging.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
 
-
-# ============================================================
 @app.route("/")
 def index():
     return render_template("index.html")
-
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5001)
