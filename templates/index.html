@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Network Traffic Analysis Dashboard</title>
+
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
@@ -12,30 +14,59 @@
     body {
       font-family: "Inter", sans-serif;
     }
-    .attack { color: #ef4444; font-weight: 600; }
-    .normal { color: #22c55e; font-weight: 600; }
 
-    .new-flow td { animation: slideIn 0.4s ease-out; }
+    .attack {
+      color: #ef4444;
+      font-weight: 600;
+    }
+
+    .normal {
+      color: #22c55e;
+      font-weight: 600;
+    }
+
+    .new-flow td {
+      animation: slideIn 0.4s ease-out;
+    }
 
     .flash-feedback {
       animation: flashYellow 1.5s ease-out;
     }
+
     .flash-learn {
       animation: flashRed 1.5s ease-out;
     }
 
     @keyframes flashYellow {
-      0% { background-color: #fff9c2; }
-      100% { background-color: transparent; }
+      0% {
+        background-color: #fff9c2;
+      }
+
+      100% {
+        background-color: transparent;
+      }
     }
+
     @keyframes flashRed {
-      0% { background-color: #ffd1d1; }
-      100% { background-color: transparent; }
+      0% {
+        background-color: #ffd1d1;
+      }
+
+      100% {
+        background-color: transparent;
+      }
     }
 
     @keyframes slideIn {
-      from { opacity: 0; transform: translateX(-20px); }
-      to { opacity: 1; transform: translateX(0); }
+      from {
+        opacity: 0;
+        transform: translateX(-20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateX(0);
+      }
     }
   </style>
 </head>
@@ -64,10 +95,8 @@
         <thead>
           <tr class="bg-indigo-600 text-white text-sm uppercase">
             <th class="p-3 text-left">Flow ID</th>
-            <th class="p-3 text-left">Source IP</th>
-            <th class="p-3 text-left">Source Port</th>
-            <th class="p-3 text-left">Destination IP</th>
-            <th class="p-3 text-left">Destination Port</th>
+            <th class="p-3 text-left">Source</th>
+            <th class="p-3 text-left">Destination</th>
             <th class="p-3 text-left">Protocol</th>
             <th class="p-3 text-left">Prediction</th>
             <th class="p-3 text-left">Confidence</th>
@@ -81,23 +110,33 @@
     <!-- Footer -->
     <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
       <p>Authors: MinhBQ - QuanTC</p>
-      <p>Course: Graduation Thesis - 2025</p>
-      <p>Last updated: October 2025</p>
+      <p>Graduation Thesis - 2025</p>
     </footer>
   </div>
 
-  <!-- Popup -->
+  <!-- ========== POPUP CENTERED ========== -->
   <div id="popup"
-       class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 hidden items-center justify-center">
-    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-11/12 md:w-1/2 shadow-xl">
-      <h2 class="text-lg font-semibold mb-2">Flow Details</h2>
-      <pre id="popupContent"
-           class="text-sm bg-gray-100 dark:bg-gray-700 p-3 rounded-lg overflow-auto max-h-96"></pre>
+    class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4 overflow-auto">
 
-      <button onclick="closePopup()"
-              class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-        Close
-      </button>
+    <div class="bg-white dark:bg-gray-800 rounded-xl shadow-xl p-6 w-full max-w-2xl">
+
+      <h2 class="text-xl font-bold mb-4 text-indigo-600">Flow Details</h2>
+
+      <!-- COPY BUTTON -->
+      <button id="copyBtn"
+        class="mb-4 px-4 py-1 bg-indigo-600 text-white rounded hover:bg-indigo-700 float-right">Copy</button>
+
+      <!-- Table -->
+      <table class="w-full text-sm border border-gray-300 dark:border-gray-700 rounded">
+        <tbody id="popupTableBody" class="divide-y divide-gray-200 dark:divide-gray-700">
+        </tbody>
+      </table>
+
+      <div class="mt-6 text-right">
+        <button onclick="closePopup()"
+          class="px-4 py-2 bg-gray-300 dark:bg-gray-700 dark:text-gray-300 rounded hover:bg-gray-400">Close</button>
+      </div>
+
     </div>
   </div>
 
@@ -113,7 +152,7 @@
     let flows = [];
     const maxFlows = 500;
 
-    // Chart Setup
+    /* ---------------- Chart ---------------- */
     const ctx = document.getElementById("flowChart").getContext("2d");
     const chartData = { labels: [], attackCounts: [], benignCounts: [] };
     const flowChart = new Chart(ctx, {
@@ -121,10 +160,16 @@
       data: {
         labels: chartData.labels,
         datasets: [
-          { label: "ATTACK", data: chartData.attackCounts,
-            borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.2)", fill: true, tension: 0.4 },
-          { label: "BENIGN", data: chartData.benignCounts,
-            borderColor: "#22c55e", backgroundColor: "rgba(34,197,94,0.2)", fill: true, tension: 0.4 }
+          {
+            label: "ATTACK", data: chartData.attackCounts,
+            borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.2)",
+            fill: true, tension: 0.4
+          },
+          {
+            label: "BENIGN", data: chartData.benignCounts,
+            borderColor: "#22c55e", backgroundColor: "rgba(34,197,94,0.2)",
+            fill: true, tension: 0.4
+          }
         ]
       },
       options: { responsive: true, maintainAspectRatio: false, animation: false }
@@ -137,28 +182,29 @@
         chartData.labels.push(t);
         chartData.attackCounts.push(0);
         chartData.benignCounts.push(0);
-        if (chartData.labels.length > 20) {
+
+        if (chartData.labels.length > 25) {
           chartData.labels.shift();
           chartData.attackCounts.shift();
           chartData.benignCounts.shift();
         }
       }
+
       const idx = chartData.labels.length - 1;
       if (flow.binary_prediction === "attack") chartData.attackCounts[idx]++;
       else chartData.benignCounts[idx]++;
+
       flowChart.update("none");
     }
 
-    // Render table
+    /* ---------------- Table rendering ---------------- */
     function renderTable() {
       tbody.innerHTML = flows.map(f => `
         <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow ${f.flash_class || ""}"
             onclick='showPopup(${JSON.stringify(f)})'>
           <td class="p-3 text-sm">${f.flow_id}</td>
-          <td class="p-3 text-sm">${f.src_ip}</td>
-          <td class="p-3 text-sm">${f.src_port}</td>
-          <td class="p-3 text-sm">${f.dst_ip}</td>
-          <td class="p-3 text-sm">${f.dst_port}</td>
+          <td class="p-3 text-sm">${f.src_ip}:${f.src_port}</td>
+          <td class="p-3 text-sm">${f.dst_ip}:${f.dst_port}</td>
           <td class="p-3 text-sm">${f.protocol}</td>
           <td class="p-3 text-sm ${f.binary_prediction === "attack" ? "attack" : "normal"}">
             ${f.binary_prediction.toUpperCase()}
@@ -169,7 +215,7 @@
       `).join("");
     }
 
-    // ==== Receive prediction ====
+    /* ---------------- Sockets ---------------- */
     socket.on("new_flow", (flow) => {
       flow.flash_class = "";
       flows.unshift(flow);
@@ -178,7 +224,6 @@
       renderTable();
     });
 
-    // ==== Highlight feedback ====
     socket.on("feedback_event", (fb) => {
       const idx = flows.findIndex(f => f.flow_id === fb.flow_id);
       if (idx !== -1) {
@@ -187,25 +232,89 @@
       }
     });
 
-    // ==== Highlight learned ====
     socket.on("learn_event", (report) => {
       const idx = flows.findIndex(f => f.flow_id === report.flow_id);
       if (idx !== -1) {
         flows[idx].flash_class = "flash-learn";
+        flows[idx].feedback_report = report;
         renderTable();
       }
     });
 
-    // Popup
+
+    /* ---------------- Popup rendering ---------------- */
     function showPopup(flow) {
-      document.getElementById("popupContent").textContent =
-        JSON.stringify(flow, null, 2);
+      const tableBody = document.getElementById("popupTableBody");
+      tableBody.innerHTML = "";
+
+      const addRow = (key, value) => {
+        tableBody.innerHTML += `
+        <tr>
+          <td class="p-2 font-semibold bg-gray-100 dark:bg-gray-700">${key}</td>
+          <td class="p-2">${value}</td>
+        </tr>`;
+      };
+
+      // Basic info
+      addRow("Flow ID", flow.flow_id);
+      addRow("Source", `${flow.src_ip}:${flow.src_port}`);
+      addRow("Destination", `${flow.dst_ip}:${flow.dst_port}`);
+      addRow("Protocol", flow.protocol);
+      addRow("Timestamp", flow.timestamp);
+
+      // Prediction
+      addRow("Prediction", flow.binary_prediction.toUpperCase());
+      addRow("Confidence", flow.binary_confidence);
+
+      // Feedback report
+      if (flow.feedback_report) {
+        const fb = flow.feedback_report;
+        addRow("True Label", fb.true_label);
+        addRow("Pred Before", fb.pred_before);
+        addRow("Conf Before", fb.conf_before);
+        addRow("Pred After", fb.pred_after);
+        addRow("Conf After", fb.conf_after);
+        addRow("Δ Confidence", fb.delta_conf);
+        addRow("Need Learning", fb.need_learning ? "YES" : "NO");
+        addRow("Learned", fb.learned ? "YES" : "NO");
+      }
+
+      // Features (collapsed preview)
+      addRow("Features",
+        `<pre class="text-xs max-h-48 overflow-auto">${JSON.stringify(flow.features, null, 2)}</pre>`
+      );
+
+      // Copy button
+      const copyBtn = document.getElementById("copyBtn");
+      copyBtn.onclick = () => {
+        const fullText = `
+Flow ID: ${flow.flow_id}
+Source: ${flow.src_ip}:${flow.src_port}
+Destination: ${flow.dst_ip}:${flow.dst_port}
+Protocol: ${flow.protocol}
+Timestamp: ${flow.timestamp}
+
+Prediction: ${flow.binary_prediction}
+Confidence: ${flow.binary_confidence}
+
+Feedback Report:
+${flow.feedback_report ? JSON.stringify(flow.feedback_report, null, 2) : "None"}
+
+Features:
+${JSON.stringify(flow.features, null, 2)}
+        `;
+        navigator.clipboard.writeText(fullText);
+        copyBtn.innerText = "Copied!";
+        setTimeout(() => copyBtn.innerText = "Copy", 1500);
+      };
+
       document.getElementById("popup").classList.remove("hidden");
     }
+
     function closePopup() {
       document.getElementById("popup").classList.add("hidden");
     }
-
   </script>
 </body>
+
 </html>
