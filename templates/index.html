@@ -16,6 +16,23 @@
     .normal { color: #22c55e; font-weight: 600; }
 
     .new-flow td { animation: slideIn 0.4s ease-out; }
+
+    .flash-feedback {
+      animation: flashYellow 1.5s ease-out;
+    }
+    .flash-learn {
+      animation: flashRed 1.5s ease-out;
+    }
+
+    @keyframes flashYellow {
+      0% { background-color: #fff9c2; }
+      100% { background-color: transparent; }
+    }
+    @keyframes flashRed {
+      0% { background-color: #ffd1d1; }
+      100% { background-color: transparent; }
+    }
+
     @keyframes slideIn {
       from { opacity: 0; transform: translateX(-20px); }
       to { opacity: 1; transform: translateX(0); }
@@ -23,222 +40,172 @@
   </style>
 </head>
 
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-100 min-h-screen">
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
+  <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
 
-<div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
+    <!-- Header -->
+    <header class="mb-6 text-center">
+      <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
+        Network Traffic Analysis Dashboard
+      </h1>
+      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
+        Real-time monitoring and analysis of network flows
+      </p>
+    </header>
 
-  <!-- Header -->
-  <header class="mb-6 text-center">
-    <h1 class="text-3xl sm:text-4xl font-bold text-indigo-400">Network Traffic Analysis Dashboard</h1>
-    <p class="text-sm text-gray-400 mt-2">Real-time monitoring and analysis of network flows</p>
-  </header>
+    <!-- Chart -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
+      <canvas id="flowChart" class="w-full h-64"></canvas>
+    </div>
 
-  <!-- Chart -->
-  <div class="bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
-    <canvas id="flowChart" class="w-full h-64"></canvas>
+    <!-- Table -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
+      <table id="flowTable" class="w-full border-collapse">
+        <thead>
+          <tr class="bg-indigo-600 text-white text-sm uppercase">
+            <th class="p-3 text-left">Flow ID</th>
+            <th class="p-3 text-left">Source IP</th>
+            <th class="p-3 text-left">Source Port</th>
+            <th class="p-3 text-left">Destination IP</th>
+            <th class="p-3 text-left">Destination Port</th>
+            <th class="p-3 text-left">Protocol</th>
+            <th class="p-3 text-left">Prediction</th>
+            <th class="p-3 text-left">Confidence</th>
+            <th class="p-3 text-left">Timestamp</th>
+          </tr>
+        </thead>
+        <tbody id="flowBody"></tbody>
+      </table>
+    </div>
+
+    <!-- Footer -->
+    <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+      <p>Authors: MinhBQ - QuanTC</p>
+      <p>Course: Graduation Thesis - 2025</p>
+      <p>Last updated: October 2025</p>
+    </footer>
   </div>
 
-  <!-- Table -->
-  <div class="bg-gray-800 rounded-lg shadow-lg p-4 overflow-x-auto">
-    <table id="flowTable" class="w-full border-collapse">
-      <thead>
-        <tr class="bg-indigo-600 text-white text-sm uppercase">
-          <th class="p-3 text-left">Flow ID</th>
-          <th class="p-3 text-left">Source IP</th>
-          <th class="p-3 text-left">Source Port</th>
-          <th class="p-3 text-left">Destination IP</th>
-          <th class="p-3 text-left">Destination Port</th>
-          <th class="p-3 text-left">Protocol</th>
-          <th class="p-3 text-left">Prediction</th>
-          <th class="p-3 text-left">Confidence</th>
-          <th class="p-3 text-left">Timestamp</th>
-        </tr>
-      </thead>
-      <tbody id="flowBody"></tbody>
-    </table>
+  <!-- Popup -->
+  <div id="popup"
+       class="fixed top-0 left-0 w-full h-full bg-black bg-opacity-50 hidden items-center justify-center">
+    <div class="bg-white dark:bg-gray-800 rounded-xl p-6 w-11/12 md:w-1/2 shadow-xl">
+      <h2 class="text-lg font-semibold mb-2">Flow Details</h2>
+      <pre id="popupContent"
+           class="text-sm bg-gray-100 dark:bg-gray-700 p-3 rounded-lg overflow-auto max-h-96"></pre>
+
+      <button onclick="closePopup()"
+              class="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+        Close
+      </button>
+    </div>
   </div>
 
-  <!-- Footer -->
-  <footer class="mt-6 text-center text-sm text-gray-400">
-    <p>Authors: MinhBQ - QuanTC</p>
-    <p>Graduation Thesis - 2025</p>
-  </footer>
+  <script>
+    const socket = io({
+      transports: ["websocket", "polling"],
+      reconnection: true,
+      reconnectionAttempts: 10,
+      reconnectionDelay: 2000
+    });
 
-</div>
+    const tbody = document.getElementById("flowBody");
+    let flows = [];
+    const maxFlows = 500;
 
-<!-- POPUP -->
-<div id="feedbackModal"
-     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
-  <div class="bg-white text-black rounded-xl p-6 w-full max-w-lg shadow-xl">
-    <h2 class="text-xl font-bold mb-4 text-indigo-600">Feedback Details</h2>
-    <div id="feedbackContent" class="text-sm space-y-2"></div>
+    // Chart Setup
+    const ctx = document.getElementById("flowChart").getContext("2d");
+    const chartData = { labels: [], attackCounts: [], benignCounts: [] };
+    const flowChart = new Chart(ctx, {
+      type: "line",
+      data: {
+        labels: chartData.labels,
+        datasets: [
+          { label: "ATTACK", data: chartData.attackCounts,
+            borderColor: "#ef4444", backgroundColor: "rgba(239,68,68,0.2)", fill: true, tension: 0.4 },
+          { label: "BENIGN", data: chartData.benignCounts,
+            borderColor: "#22c55e", backgroundColor: "rgba(34,197,94,0.2)", fill: true, tension: 0.4 }
+        ]
+      },
+      options: { responsive: true, maintainAspectRatio: false, animation: false }
+    });
 
-    <button onclick="closeModal()"
-      class="mt-6 w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
-      Close
-    </button>
-  </div>
-</div>
-
-<script>
-  // ============================================================
-  // Socket.IO
-  // ============================================================
-  const socket = io({
-    transports: ["websocket", "polling"],
-    reconnection: true,
-    reconnectionAttempts: 10,
-    reconnectionDelay: 2000
-  });
-
-  let flows = [];
-  const maxFlows = 500;
-  let feedbackMap = {};
-
-  const tbody = document.getElementById("flowBody");
-
-  // ============================================================
-  // Chart Setup
-  // ============================================================
-  const ctx = document.getElementById("flowChart").getContext("2d");
-  const chartData = { labels: [], attackCounts: [], benignCounts: [] };
-
-  const flowChart = new Chart(ctx, {
-    type: "line",
-    data: {
-      labels: chartData.labels,
-      datasets: [
-        {
-          label: "ATTACK",
-          data: chartData.attackCounts,
-          borderColor: "#ef4444",
-          backgroundColor: "rgba(239,68,68,0.2)",
-          fill: true,
-          tension: 0.4
-        },
-        {
-          label: "BENIGN",
-          data: chartData.benignCounts,
-          borderColor: "#22c55e",
-          backgroundColor: "rgba(34,197,94,0.2)",
-          fill: true,
-          tension: 0.4
+    function updateChart(flow) {
+      const now = new Date();
+      const t = now.toLocaleTimeString();
+      if (chartData.labels[chartData.labels.length - 1] !== t) {
+        chartData.labels.push(t);
+        chartData.attackCounts.push(0);
+        chartData.benignCounts.push(0);
+        if (chartData.labels.length > 20) {
+          chartData.labels.shift();
+          chartData.attackCounts.shift();
+          chartData.benignCounts.shift();
         }
-      ]
-    },
-    options: { responsive: true, maintainAspectRatio: false, animation: false }
-  });
-
-  // ============================================================
-  // Update Chart
-  // ============================================================
-  function updateChart(flow) {
-    const now = new Date();
-    const timeKey = now.toLocaleTimeString();
-
-    if (chartData.labels.at(-1) !== timeKey) {
-      chartData.labels.push(timeKey);
-      chartData.attackCounts.push(0);
-      chartData.benignCounts.push(0);
-      if (chartData.labels.length > 20) {
-        chartData.labels.shift();
-        chartData.attackCounts.shift();
-        chartData.benignCounts.shift();
       }
+      const idx = chartData.labels.length - 1;
+      if (flow.binary_prediction === "attack") chartData.attackCounts[idx]++;
+      else chartData.benignCounts[idx]++;
+      flowChart.update("none");
     }
 
-    const idx = chartData.labels.length - 1;
-    if (flow.binary_prediction === "attack") chartData.attackCounts[idx]++;
-    else chartData.benignCounts[idx]++;
+    // Render table
+    function renderTable() {
+      tbody.innerHTML = flows.map(f => `
+        <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow ${f.flash_class || ""}"
+            onclick='showPopup(${JSON.stringify(f)})'>
+          <td class="p-3 text-sm">${f.flow_id}</td>
+          <td class="p-3 text-sm">${f.src_ip}</td>
+          <td class="p-3 text-sm">${f.src_port}</td>
+          <td class="p-3 text-sm">${f.dst_ip}</td>
+          <td class="p-3 text-sm">${f.dst_port}</td>
+          <td class="p-3 text-sm">${f.protocol}</td>
+          <td class="p-3 text-sm ${f.binary_prediction === "attack" ? "attack" : "normal"}">
+            ${f.binary_prediction.toUpperCase()}
+          </td>
+          <td class="p-3 text-sm">${f.binary_confidence?.toFixed(4) || "N/A"}</td>
+          <td class="p-3 text-sm">${f.timestamp}</td>
+        </tr>
+      `).join("");
+    }
 
-    flowChart.update("none");
-  }
-
-  // ============================================================
-  // Render Table
-  // ============================================================
-  function renderTable() {
-    tbody.innerHTML = flows.map(flow => `
-      <tr id="row-${flow.flow_id}" class="hover:bg-gray-700 transition-colors cursor-pointer">
-        <td class="p-3 text-sm">${flow.flow_id}</td>
-        <td class="p-3 text-sm">${flow.src_ip}</td>
-        <td class="p-3 text-sm">${flow.src_port}</td>
-        <td class="p-3 text-sm">${flow.dst_ip}</td>
-        <td class="p-3 text-sm">${flow.dst_port}</td>
-        <td class="p-3 text-sm">${flow.protocol}</td>
-        <td class="p-3 text-sm ${flow.binary_prediction === "attack" ? "attack" : "normal"}">
-          ${flow.binary_prediction.toUpperCase()}
-        </td>
-        <td class="p-3 text-sm">${flow.binary_confidence?.toFixed(4) ?? "N/A"}</td>
-        <td class="p-3 text-sm">${flow.timestamp}</td>
-      </tr>
-    `).join("");
-
-    // attach clicks for popup
-    flows.forEach(f => {
-      const row = document.getElementById(`row-${f.flow_id}`);
-      if (row) row.onclick = () => showModal(f.flow_id);
+    // ==== Receive prediction ====
+    socket.on("new_flow", (flow) => {
+      flow.flash_class = "";
+      flows.unshift(flow);
+      if (flows.length > maxFlows) flows.pop();
+      updateChart(flow);
+      renderTable();
     });
-  }
 
-  // ============================================================
-  // Highlight
-  // ============================================================
-  function highlight(flow_id, color) {
-    const row = document.getElementById(`row-${flow_id}`);
-    if (!row) return;
+    // ==== Highlight feedback ====
+    socket.on("feedback_event", (fb) => {
+      const idx = flows.findIndex(f => f.flow_id === fb.flow_id);
+      if (idx !== -1) {
+        flows[idx].flash_class = "flash-feedback";
+        renderTable();
+      }
+    });
 
-    row.style.backgroundColor = color;
-    setTimeout(() => row.style.backgroundColor = "", 1200);
-  }
+    // ==== Highlight learned ====
+    socket.on("learn_event", (report) => {
+      const idx = flows.findIndex(f => f.flow_id === report.flow_id);
+      if (idx !== -1) {
+        flows[idx].flash_class = "flash-learn";
+        renderTable();
+      }
+    });
 
-  // ============================================================
-  // Popup
-  // ============================================================
-  function showModal(flow_id) {
-    const data = feedbackMap[flow_id];
-    if (!data) return;
+    // Popup
+    function showPopup(flow) {
+      document.getElementById("popupContent").textContent =
+        JSON.stringify(flow, null, 2);
+      document.getElementById("popup").classList.remove("hidden");
+    }
+    function closePopup() {
+      document.getElementById("popup").classList.add("hidden");
+    }
 
-    document.getElementById("feedbackContent").innerHTML = `
-      <p><b>Flow ID:</b> ${data.flow_id}</p>
-      <p><b>True Label:</b> ${data.true_label}</p>
-      <p><b>Prediction Before:</b> ${data.pred_before}</p>
-      <p><b>Confidence Before:</b> ${data.conf_before}</p>
-      <p><b>Prediction After:</b> ${data.pred_after}</p>
-      <p><b>Confidence After:</b> ${data.conf_after}</p>
-      <p><b>Delta:</b> ${data.delta_conf}</p>
-      <p><b>Improved:</b> ${data.improved}</p>
-      <p><b>Learned:</b> ${data.learned}</p>
-    `;
-
-    document.getElementById("feedbackModal").classList.remove("hidden");
-  }
-
-  function closeModal() {
-    document.getElementById("feedbackModal").classList.add("hidden");
-  }
-
-  // ============================================================
-  // Receive new flow
-  // ============================================================
-  socket.on("new_flow", (flow) => {
-    flows.unshift(flow);
-    if (flows.length > maxFlows) flows.pop();
-    updateChart(flow);
-    renderTable();
-  });
-
-  // ============================================================
-  // Receive feedback
-  // ============================================================
-  socket.on("feedback_event", (data) => {
-    const id = data.flow_id;
-    feedbackMap[id] = data;
-
-    if (data.learned) highlight(id, "#b3ffcc");  // green
-    else highlight(id, "#fff59d");               // yellow
-  });
-
-</script>
+  </script>
 </body>
 </html>
