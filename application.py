@@ -54,6 +54,7 @@ def to_ms(ts):
     except:
         return int(datetime.now().timestamp()*1000)
 
+# ============================== FEATURE LIST =========================
 FEATURE_COLUMNS = [
     "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
     "Total Length of Fwd Packets", "Total Length of Bwd Packets",
@@ -77,6 +78,7 @@ FEATURE_COLUMNS = [
     "Idle Mean", "Idle Std", "Idle Max", "Idle Min"
 ]
 
+# ============================== PREDICT ===============================
 def predict_api(flow_id, features):
     try:
         payload = {"flow_id": flow_id, "features": features}
@@ -90,8 +92,10 @@ def predict_api(flow_id, features):
         logging.error(f"Predict API error: {e}")
         return "error", 0.0
 
+# ============================== LOG TO DYNAMODB ========================
 def log_async(result):
-    if not table: return
+    if not table:
+        return
     def worker():
         try:
             table.put_item(Item={
@@ -105,6 +109,7 @@ def log_async(result):
             logging.error(f"DynamoDB error: {e}")
     threading.Thread(target=worker, daemon=True).start()
 
+# ============================== PROCESS FLOW ===========================
 def process_flow(p):
     features = {f: safe(p.get(f, 0)) for f in FEATURE_COLUMNS}
 
@@ -123,21 +128,19 @@ def process_flow(p):
         "binary_prediction": label,
         "binary_confidence": conf,
         "features": features,
+        "feedback_report": None
     }
 
     with flow_lock:
         flow_results.append(result)
-        if len(flow_results) > 1000: flow_results.pop(0)
+        if len(flow_results) > 1000:
+            flow_results.pop(0)
 
-    try:
-        socketio.emit("new_flow", result)
-        eventlet.sleep(0)
-    except:
-        logging.error("Socket emit failed")
-
+    socketio.emit("new_flow", result)
     log_async(result)
     return result
 
+# ============================== INGEST =================================
 @app.route("/ingest_flow", methods=["POST"])
 def ingest_flow():
     try:
@@ -145,26 +148,26 @@ def ingest_flow():
         if "batch" in p:
             return jsonify({"results": [process_flow(x) for x in p["batch"]]}), 200
         return jsonify(process_flow(p)), 200
-
     except Exception as e:
         logging.error(f"Ingest error: {e}")
         return jsonify({"error": str(e)}), 500
 
+# ============================== FEEDBACK + UPDATE UI ====================
 @app.route("/feedback_flow", methods=["POST"])
 def feedback_flow():
     try:
         p = request.get_json(force=True)
 
-        feedback_payload = {
+        payload = {
             "Flow ID": p.get("Flow ID"),
             "true_label": p.get("true_label"),
             "features": p.get("features", {})
         }
 
         with httpx.Client(timeout=8.0) as c:
-            r = c.post(FEEDBACK_API_URL, json=feedback_payload)
+            r = c.post(FEEDBACK_API_URL, json=payload)
 
-        data = r.json()
+        report = r.json()
 
         socketio.emit("feedback_event", {
             "flow_id": p.get("Flow ID"),
@@ -172,10 +175,19 @@ def feedback_flow():
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-        if data.get("learned") is True:
-            socketio.emit("learn_event", data)
+        # === attach report to flow ===
+        with flow_lock:
+            idx = next((i for i, f in enumerate(flow_results)
+                        if f["flow_id"] == p.get("Flow ID")), None)
+            if idx is not None:
+                flow_results[idx]["feedback_report"] = report
+                socketio.emit("update_flow", flow_results[idx])
 
-        return jsonify({"status": "ok", "model_response": data}), 200
+        # highlight learning
+        if report.get("learned") is True:
+            socketio.emit("learn_event", report)
+
+        return jsonify({"status": "ok", "model_response": report}), 200
 
     except Exception as e:
         logging.error(f"Feedback error: {e}")
@@ -185,6 +197,7 @@ def feedback_flow():
 @app.route("/")
 def index():
     return render_template("index.html")
+
 
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5001)
