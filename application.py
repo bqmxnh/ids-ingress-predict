@@ -33,8 +33,8 @@ logging.basicConfig(
 # ============================================================
 # Config
 # ============================================================
-MODEL_API_URL = os.getenv("MODEL_API_URL", "http://localhost:5000/predict")
-FEEDBACK_API_URL = os.getenv("FEEDBACK_API_URL", "http://localhost:5000/feedback")
+MODEL_API_URL = "http://api.qmuit.id.vn/predict"
+FEEDBACK_API_URL = "http://api.qmuit.id.vn/feedback"
 AWS_REGION = "us-east-1"
 
 logging.info(f"Using MODEL_API_URL={MODEL_API_URL}")
@@ -95,7 +95,6 @@ def normalize_label(label):
 # Feature columns (đã thêm "Protocol")
 # ============================================================
 FEATURE_COLUMNS = [
-    "Protocol",
     "Flow Duration", "Total Fwd Packets", "Total Backward Packets",
     "Total Length of Fwd Packets", "Total Length of Bwd Packets",
     "Fwd Packet Length Max", "Fwd Packet Length Min", "Fwd Packet Length Mean", "Fwd Packet Length Std",
