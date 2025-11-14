@@ -7,203 +7,238 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.5.0/socket.io.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
   <style>
     body {
       font-family: "Inter", sans-serif;
     }
-    .attack {
-      color: #ef4444;
-      font-weight: 600;
-    }
-    .normal {
-      color: #22c55e;
-      font-weight: 600;
-    }
-    .new-flow td {
-      animation: slideIn 0.4s ease-out;
-    }
+    .attack { color: #ef4444; font-weight: 600; }
+    .normal { color: #22c55e; font-weight: 600; }
+
+    .new-flow td { animation: slideIn 0.4s ease-out; }
     @keyframes slideIn {
-      from {
-        opacity: 0;
-        transform: translateX(-20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateX(0);
-      }
+      from { opacity: 0; transform: translateX(-20px); }
+      to { opacity: 1; transform: translateX(0); }
     }
   </style>
 </head>
-<body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
-  <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
-    <!-- Header -->
-    <header class="mb-6 text-center">
-      <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
-        Network Traffic Analysis Dashboard
-      </h1>
-      <p class="text-sm text-gray-500 dark:text-gray-400 mt-2">
-        Real-time monitoring and analysis of network flows
-      </p>
-    </header>
 
-    <!-- Chart -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-      <canvas id="flowChart" class="w-full h-64"></canvas>
-    </div>
+<body class="bg-gray-50 dark:bg-gray-900 text-gray-100 min-h-screen">
 
-    <!-- Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
-      <table id="flowTable" class="w-full border-collapse">
-        <thead>
-          <tr class="bg-indigo-600 text-white text-sm uppercase">
-            <th class="p-3 text-left">Flow ID</th>
-            <th class="p-3 text-left">Source IP</th>
-            <th class="p-3 text-left">Source Port</th>
-            <th class="p-3 text-left">Destination IP</th>
-            <th class="p-3 text-left">Destination Port</th>
-            <th class="p-3 text-left">Protocol</th>
-            <th class="p-3 text-left">Prediction</th>
-            <th class="p-3 text-left">Confidence</th>
-            <th class="p-3 text-left">Timestamp</th>
-          </tr>
-        </thead>
-        <tbody id="flowBody"></tbody>
-      </table>
-    </div>
+<div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
 
-    <!-- Footer -->
-    <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
-      <p>Authors: MinhBQ - QuanTC</p>
-      <p>Course: Graduation Thesis - 2025</p>
-      <p>Last updated: October 2025</p>
-    </footer>
+  <!-- Header -->
+  <header class="mb-6 text-center">
+    <h1 class="text-3xl sm:text-4xl font-bold text-indigo-400">Network Traffic Analysis Dashboard</h1>
+    <p class="text-sm text-gray-400 mt-2">Real-time monitoring and analysis of network flows</p>
+  </header>
+
+  <!-- Chart -->
+  <div class="bg-gray-800 rounded-lg shadow-lg p-4 mb-6">
+    <canvas id="flowChart" class="w-full h-64"></canvas>
   </div>
 
-  <script>
-    // ============================================================
-    // 🔌 Socket.IO Connection (tự động qua domain ALB)
-    // ============================================================
-    const socket = io({
-      transports: ["websocket", "polling"], // 🟢 fallback khi ALB drop websocket
-      reconnection: true,
-      reconnectionAttempts: 10,
-      reconnectionDelay: 2000
-    });
-
-    const tbody = document.getElementById("flowBody");
-    let flows = [];
-    const maxFlows = 500;
-
-    // ============================================================
-    // 📊 Chart Setup
-    // ============================================================
-    const ctx = document.getElementById("flowChart").getContext("2d");
-    const chartData = { labels: [], attackCounts: [], benignCounts: [] };
-    const flowChart = new Chart(ctx, {
-      type: "line",
-      data: {
-        labels: chartData.labels,
-        datasets: [
-          {
-            label: "ATTACK",
-            data: chartData.attackCounts,
-            borderColor: "#ef4444",
-            backgroundColor: "rgba(239,68,68,0.2)",
-            fill: true,
-            tension: 0.4
-          },
-          {
-            label: "BENIGN",
-            data: chartData.benignCounts,
-            borderColor: "#22c55e",
-            backgroundColor: "rgba(34,197,94,0.2)",
-            fill: true,
-            tension: 0.4
-          }
-        ]
-      },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        animation: false,
-        scales: {
-          x: {
-            title: { display: true, text: "Time" },
-            ticks: { autoSkip: true, maxTicksLimit: 10 }
-          },
-          y: {
-            title: { display: true, text: "Flow Count" },
-            beginAtZero: true
-          }
-        }
-      }
-    });
-
-    // ============================================================
-    // ⚡ Update Chart
-    // ============================================================
-    function updateChart(flow) {
-      const now = new Date();
-      const timeKey = now.toLocaleTimeString([], {
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit"
-      });
-
-      if (chartData.labels[chartData.labels.length - 1] !== timeKey) {
-        chartData.labels.push(timeKey);
-        chartData.attackCounts.push(0);
-        chartData.benignCounts.push(0);
-        if (chartData.labels.length > 20) {
-          chartData.labels.shift();
-          chartData.attackCounts.shift();
-          chartData.benignCounts.shift();
-        }
-      }
-
-      const idx = chartData.labels.length - 1;
-      if (flow.binary_prediction === "attack") chartData.attackCounts[idx]++;
-      else chartData.benignCounts[idx]++;
-
-      flowChart.update("none");
-    }
-
-    // ============================================================
-    // 🧱 Render Table Rows
-    // ============================================================
-    function renderTable() {
-      tbody.innerHTML = flows.map(flow => `
-        <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow">
-          <td class="p-3 text-sm">${flow.flow_id}</td>
-          <td class="p-3 text-sm">${flow.src_ip}</td>
-          <td class="p-3 text-sm">${flow.src_port}</td>
-          <td class="p-3 text-sm">${flow.dst_ip}</td>
-          <td class="p-3 text-sm">${flow.dst_port}</td>
-          <td class="p-3 text-sm">${flow.protocol}</td>
-          <td class="p-3 text-sm ${flow.binary_prediction === "attack" ? "attack" : "normal"}">
-            ${flow.binary_prediction.toUpperCase()}
-          </td>
-          <td class="p-3 text-sm">${flow.binary_confidence ? flow.binary_confidence.toFixed(4) : "N/A"}</td>
-          <td class="p-3 text-sm">${flow.timestamp}</td>
+  <!-- Table -->
+  <div class="bg-gray-800 rounded-lg shadow-lg p-4 overflow-x-auto">
+    <table id="flowTable" class="w-full border-collapse">
+      <thead>
+        <tr class="bg-indigo-600 text-white text-sm uppercase">
+          <th class="p-3 text-left">Flow ID</th>
+          <th class="p-3 text-left">Source IP</th>
+          <th class="p-3 text-left">Source Port</th>
+          <th class="p-3 text-left">Destination IP</th>
+          <th class="p-3 text-left">Destination Port</th>
+          <th class="p-3 text-left">Protocol</th>
+          <th class="p-3 text-left">Prediction</th>
+          <th class="p-3 text-left">Confidence</th>
+          <th class="p-3 text-left">Timestamp</th>
         </tr>
-      `).join("");
+      </thead>
+      <tbody id="flowBody"></tbody>
+    </table>
+  </div>
+
+  <!-- Footer -->
+  <footer class="mt-6 text-center text-sm text-gray-400">
+    <p>Authors: MinhBQ - QuanTC</p>
+    <p>Graduation Thesis - 2025</p>
+  </footer>
+
+</div>
+
+<!-- POPUP -->
+<div id="feedbackModal"
+     class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50">
+  <div class="bg-white text-black rounded-xl p-6 w-full max-w-lg shadow-xl">
+    <h2 class="text-xl font-bold mb-4 text-indigo-600">Feedback Details</h2>
+    <div id="feedbackContent" class="text-sm space-y-2"></div>
+
+    <button onclick="closeModal()"
+      class="mt-6 w-full py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+      Close
+    </button>
+  </div>
+</div>
+
+<script>
+  // ============================================================
+  // Socket.IO
+  // ============================================================
+  const socket = io({
+    transports: ["websocket", "polling"],
+    reconnection: true,
+    reconnectionAttempts: 10,
+    reconnectionDelay: 2000
+  });
+
+  let flows = [];
+  const maxFlows = 500;
+  let feedbackMap = {};
+
+  const tbody = document.getElementById("flowBody");
+
+  // ============================================================
+  // Chart Setup
+  // ============================================================
+  const ctx = document.getElementById("flowChart").getContext("2d");
+  const chartData = { labels: [], attackCounts: [], benignCounts: [] };
+
+  const flowChart = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: chartData.labels,
+      datasets: [
+        {
+          label: "ATTACK",
+          data: chartData.attackCounts,
+          borderColor: "#ef4444",
+          backgroundColor: "rgba(239,68,68,0.2)",
+          fill: true,
+          tension: 0.4
+        },
+        {
+          label: "BENIGN",
+          data: chartData.benignCounts,
+          borderColor: "#22c55e",
+          backgroundColor: "rgba(34,197,94,0.2)",
+          fill: true,
+          tension: 0.4
+        }
+      ]
+    },
+    options: { responsive: true, maintainAspectRatio: false, animation: false }
+  });
+
+  // ============================================================
+  // Update Chart
+  // ============================================================
+  function updateChart(flow) {
+    const now = new Date();
+    const timeKey = now.toLocaleTimeString();
+
+    if (chartData.labels.at(-1) !== timeKey) {
+      chartData.labels.push(timeKey);
+      chartData.attackCounts.push(0);
+      chartData.benignCounts.push(0);
+      if (chartData.labels.length > 20) {
+        chartData.labels.shift();
+        chartData.attackCounts.shift();
+        chartData.benignCounts.shift();
+      }
     }
 
-    // ============================================================
-    // 🔥 Receive Realtime Flow
-    // ============================================================
-    socket.on("new_flow", (flow) => {
-      flows.unshift(flow);
-      if (flows.length > maxFlows) flows.pop();
-      updateChart(flow);
-      renderTable();
-    });
+    const idx = chartData.labels.length - 1;
+    if (flow.binary_prediction === "attack") chartData.attackCounts[idx]++;
+    else chartData.benignCounts[idx]++;
 
-    // ============================================================
-    // ⚠️ Connection Status
-    // ============================================================
-    socket.on("connect", () => console.log("✅ Connected to IDS Dashboard"));
-    socket.on("disconnect", () => console.warn("⚠️ Lost connection. Reconnecting..."));
-  </script>
+    flowChart.update("none");
+  }
+
+  // ============================================================
+  // Render Table
+  // ============================================================
+  function renderTable() {
+    tbody.innerHTML = flows.map(flow => `
+      <tr id="row-${flow.flow_id}" class="hover:bg-gray-700 transition-colors cursor-pointer">
+        <td class="p-3 text-sm">${flow.flow_id}</td>
+        <td class="p-3 text-sm">${flow.src_ip}</td>
+        <td class="p-3 text-sm">${flow.src_port}</td>
+        <td class="p-3 text-sm">${flow.dst_ip}</td>
+        <td class="p-3 text-sm">${flow.dst_port}</td>
+        <td class="p-3 text-sm">${flow.protocol}</td>
+        <td class="p-3 text-sm ${flow.binary_prediction === "attack" ? "attack" : "normal"}">
+          ${flow.binary_prediction.toUpperCase()}
+        </td>
+        <td class="p-3 text-sm">${flow.binary_confidence?.toFixed(4) ?? "N/A"}</td>
+        <td class="p-3 text-sm">${flow.timestamp}</td>
+      </tr>
+    `).join("");
+
+    // attach clicks for popup
+    flows.forEach(f => {
+      const row = document.getElementById(`row-${f.flow_id}`);
+      if (row) row.onclick = () => showModal(f.flow_id);
+    });
+  }
+
+  // ============================================================
+  // Highlight
+  // ============================================================
+  function highlight(flow_id, color) {
+    const row = document.getElementById(`row-${flow_id}`);
+    if (!row) return;
+
+    row.style.backgroundColor = color;
+    setTimeout(() => row.style.backgroundColor = "", 1200);
+  }
+
+  // ============================================================
+  // Popup
+  // ============================================================
+  function showModal(flow_id) {
+    const data = feedbackMap[flow_id];
+    if (!data) return;
+
+    document.getElementById("feedbackContent").innerHTML = `
+      <p><b>Flow ID:</b> ${data.flow_id}</p>
+      <p><b>True Label:</b> ${data.true_label}</p>
+      <p><b>Prediction Before:</b> ${data.pred_before}</p>
+      <p><b>Confidence Before:</b> ${data.conf_before}</p>
+      <p><b>Prediction After:</b> ${data.pred_after}</p>
+      <p><b>Confidence After:</b> ${data.conf_after}</p>
+      <p><b>Delta:</b> ${data.delta_conf}</p>
+      <p><b>Improved:</b> ${data.improved}</p>
+      <p><b>Learned:</b> ${data.learned}</p>
+    `;
+
+    document.getElementById("feedbackModal").classList.remove("hidden");
+  }
+
+  function closeModal() {
+    document.getElementById("feedbackModal").classList.add("hidden");
+  }
+
+  // ============================================================
+  // Receive new flow
+  // ============================================================
+  socket.on("new_flow", (flow) => {
+    flows.unshift(flow);
+    if (flows.length > maxFlows) flows.pop();
+    updateChart(flow);
+    renderTable();
+  });
+
+  // ============================================================
+  // Receive feedback
+  // ============================================================
+  socket.on("feedback_event", (data) => {
+    const id = data.flow_id;
+    feedbackMap[id] = data;
+
+    if (data.learned) highlight(id, "#b3ffcc");  // green
+    else highlight(id, "#fff59d");               // yellow
+  });
+
+</script>
 </body>
 </html>
