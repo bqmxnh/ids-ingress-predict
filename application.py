@@ -113,7 +113,7 @@ def log_async(result):
 def process_flow(p):
     features = {f: safe(p.get(f, 0)) for f in FEATURE_COLUMNS}
 
-    flow_id = p.get("Flow ID", "")
+    flow_id = p.get("Flow ID") or p.get("flow_id") or ""
     label, conf = predict_api(flow_id, features)
 
     result = {
@@ -158,32 +158,39 @@ def feedback_flow():
     try:
         p = request.get_json(force=True)
 
+        # ---- Lấy flow_id từ cả 2 kiểu ----
+        flow_id = p.get("Flow ID") or p.get("flow_id")
+
+        # ---- Payload gửi tới API học ----
         payload = {
-            "Flow ID": p.get("Flow ID"),
+            "flow_id": flow_id,
             "true_label": p.get("true_label"),
             "features": p.get("features", {})
         }
 
+        # ---- Gửi feedback tới model API ----
         with httpx.Client(timeout=8.0) as c:
             r = c.post(FEEDBACK_API_URL, json=payload)
 
         report = r.json()
 
+        # ---- Gửi event lên UI ----
         socketio.emit("feedback_event", {
-            "flow_id": p.get("Flow ID"),
+            "flow_id": flow_id,
             "true_label": p.get("true_label"),
             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         })
 
-        # === attach report to flow ===
+        # ---- Gắn report vào flow trong bộ nhớ ----
         with flow_lock:
             idx = next((i for i, f in enumerate(flow_results)
-                        if f["flow_id"] == p.get("Flow ID")), None)
+                        if f["flow_id"] == flow_id), None)
+
             if idx is not None:
                 flow_results[idx]["feedback_report"] = report
                 socketio.emit("update_flow", flow_results[idx])
 
-        # highlight learning
+        # ---- Nếu model học thì highlight ----
         if report.get("learned") is True:
             socketio.emit("learn_event", report)
 
@@ -192,6 +199,7 @@ def feedback_flow():
     except Exception as e:
         logging.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 
 @app.route("/")
