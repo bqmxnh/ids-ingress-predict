@@ -14,6 +14,13 @@ import boto3
 import httpx
 import os
 
+############
+# QuanTC add: 
+import requests
+from collections import deque
+import time
+##############
+
 # Flask Setup
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
@@ -25,6 +32,132 @@ logging.basicConfig(filename='ids.log', level=logging.DEBUG,
 MODEL_API_URL = "http://api.qmuit.id.vn/predict"
 FEEDBACK_API_URL = "http://api.qmuit.id.vn/feedback"
 AWS_REGION = "us-east-1"
+
+
+#############
+# QuanTC add: 
+# ==========================================
+# CONFIG
+# ==========================================
+HONEYPOT_URL = "http://honeypot.qmuit.id.vn/receive_attack"
+EMAIL_LAMBDA_URL=""
+ATTACK_BUFFER = deque() 
+BATCH_TIMEOUT = 60
+LOCK = threading.Lock()
+last_attack_time = None
+
+# ==========================================
+# REDIRECT ATTACK TO HONEYPOT
+# ==========================================
+def redirect_to_honeypot(flow_data, label):
+    global last_attack_time
+    
+    if label.upper() != "ATTACK":
+        return
+    
+    with LOCK:
+        # Add to buffer
+        ATTACK_BUFFER.append({
+            "flow_id": flow_data.get("Flow ID"),
+            "timestamp": datetime.now().isoformat(),
+            "src_ip": flow_data.get("Source IP"),
+            "src_port": flow_data.get("Source Port"),
+            "dst_ip": flow_data.get("Destination IP"),
+            "dst_port": flow_data.get("Destination Port"),
+            "protocol": flow_data.get("Protocol"),
+            "features": flow_data,
+            "label": label
+        })
+        last_attack_time = time.time()
+    
+    # Send to honeypot (non-blocking)
+    try:
+        requests.post(
+            HONEYPOT_URL,
+            json=flow_data,
+            timeout=2
+        )
+        print(f"[→ HONEYPOT] Redirected flow {flow_data.get('Flow ID')}")
+    except Exception as e:
+        print(f"[!] Honeypot error: {e}")
+
+# ==========================================
+# BATCH ALERT THREAD
+# ==========================================
+def batch_alert_worker():
+    global last_attack_time
+    
+    while True:
+        time.sleep(1)
+        
+        with LOCK:
+            if not ATTACK_BUFFER:
+                continue
+            
+            # Check timeout
+            if last_attack_time and (time.time() - last_attack_time) >= BATCH_TIMEOUT:
+                batch_size = len(ATTACK_BUFFER)
+                batch_data = list(ATTACK_BUFFER)
+                ATTACK_BUFFER.clear()
+                last_attack_time = None
+                
+                # Send email alert
+                threading.Thread(
+                    target=send_email_alert,
+                    args=(batch_size, batch_data),
+                    daemon=True
+                ).start()
+
+def send_email_alert(count, batch_data):
+    try:
+        alert_time = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        
+        email_body = f"""
+        <h2>IDS Attack Detection Alert</h2>
+        <p><strong>Time:</strong> {alert_time}</p>
+        <p><strong>Total Attack Traffic:</strong> {count} flows</p>
+        <h3>Attack Summary:</h3>
+        <ul>
+        """
+        
+        for flow in batch_data[:15]: 
+            email_body += f"""
+            <li>Flow ID: {flow['flow_id']} | 
+                Src: {flow['src_ip']}:{flow['src_port']} → 
+                Dst: {flow['dst_ip']}:{flow['dst_port']}</li>
+            """
+        
+        if count > 15:
+            email_body += f"<li>... and {count - 15} more flows</li>"
+        
+        email_body += """
+        </ul>
+        <p>All attack traffic has been redirected to Honeypot system.</p>
+        """
+        
+        # Call Lambda to send email
+        response = requests.post(
+            EMAIL_LAMBDA_URL,
+            json={
+                "subject": f"[IDS Alert] {count} Attack Traffic Detected",
+                "body": email_body,
+                "count": count,
+                "timestamp": alert_time
+            },
+            timeout=5
+        )
+        
+        if response.status_code == 200:
+            print(f"[✓] Email alert sent for {count} attacks")
+        else:
+            print(f"[!] Email send failed: {response.text}")
+            
+    except Exception as e:
+        print(f"[!] Email error: {e}")
+
+# Start batch worker thread
+threading.Thread(target=batch_alert_worker, daemon=True).start()
+#############
 
 try:
     dynamodb = boto3.resource("dynamodb", region_name=AWS_REGION)
@@ -130,6 +263,10 @@ def process_flow(p):
         "features": features,
         "feedback_report": None
     }
+
+    #QuanTC add:
+    redirect_to_honeypot(p, label)
+    ####
 
     with flow_lock:
         flow_results.append(result)
