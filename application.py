@@ -47,19 +47,6 @@ BATCH_TIMEOUT = 60
 LOCK = threading.Lock()
 last_attack_time = None
 
-# ✅ IN RA GIÁ TRỊ KHI START
-logger.info("=" * 60)
-logger.info("IDS AGENT CONFIGURATION")
-logger.info("=" * 60)
-logger.info(f"HONEYPOT_URL     : {HONEYPOT_URL}")
-logger.info(f"EMAIL_LAMBDA_URL : {EMAIL_LAMBDA_URL if EMAIL_LAMBDA_URL else '⚠️  NOT SET'}")
-logger.info(f"BATCH_TIMEOUT    : {BATCH_TIMEOUT}s")
-logger.info("=" * 60)
-
-if not EMAIL_LAMBDA_URL:
-    logger.warning("⚠️  EMAIL_LAMBDA_URL is empty! Email alerts are DISABLED.")
-else:
-    logger.info("✅ Email alerts are ENABLED")
 
 # ==========================================
 # REDIRECT ATTACK TO HONEYPOT
