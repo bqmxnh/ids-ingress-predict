@@ -39,8 +39,9 @@ AWS_REGION = "us-east-1"
 # ==========================================
 # CONFIG
 # ==========================================
+mail_url=os.getenv("EMAIL_LAMBDA_URL", "") 
 HONEYPOT_URL = "http://honeypot.qmuit.id.vn/receive_attack"
-EMAIL_LAMBDA_URL=os.getenv("EMAIL_LAMBDA_URL", "") 
+EMAIL_LAMBDA_URL=mail_url
 ATTACK_BUFFER = deque() 
 BATCH_TIMEOUT = 60
 LOCK = threading.Lock()
