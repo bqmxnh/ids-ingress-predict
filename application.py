@@ -112,7 +112,7 @@ def batch_alert_worker():
     
     while True:
         time.sleep(1)
-        
+        batch_data = None
         with LOCK:
             if not ATTACK_BUFFER:
                 continue
@@ -124,103 +124,96 @@ def batch_alert_worker():
                 ATTACK_BUFFER.clear()
                 last_attack_time = None
                 
-                # Send email alert
-                threading.Thread(
-                    target=send_email_alert,
-                    args=(batch_size, batch_data),
-                    daemon=True
-                ).start()
+        if batch_data:
+            threading.Thread(
+                target=send_email_alert,
+                args=(batch_data,),
+                daemon=True
+            ).start()
 
-def send_email_alert():
+def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
     """Send batch email alert after timeout"""
-    global last_attack_time
     
-    with LOCK:
-        if not ATTACK_BUFFER:
-            return
+    if not batch_data:
+        return
+    
+    try:
+        # ✅ LẤY COUNT TỪ HONEYPOT (không cần LOCK)
+        honeypot_stats_url = HONEYPOT_URL.replace('/receive_attack', '/stats')
+        stats_response = requests.get(honeypot_stats_url, timeout=3)
         
-        try:
-            # ✅ LẤY COUNT TỪ HONEYPOT (chính xác hơn)
-            honeypot_stats_url = HONEYPOT_URL.replace('/receive_attack', '/stats')
-            stats_response = requests.get(honeypot_stats_url, timeout=3)
+        if stats_response.status_code == 200:
+            stats = stats_response.json()
+            actual_count = stats.get('count', len(batch_data))
+            log_date = stats.get('date', datetime.now().strftime('%Y%m%d'))
+        else:
+            actual_count = len(batch_data)
+            log_date = datetime.now().strftime('%Y%m%d')
+        
+        # Generate email HTML
+        timestamp = datetime.now().isoformat()
+        subject = f"🚨 ARF IDS Alert - {actual_count} attacks detected"
+        
+        html_body = f"""
+        <html>
+        <body style="font-family: Arial, sans-serif; line-height: 1.6;">
+            <h2 style="color: #d9534f;">IDS Attack Detection Alert</h2>
+            <p><strong>Time:</strong> {timestamp}</p>
+            <p><strong>Total Attack Traffic:</strong> {actual_count} flows</p>
             
-            if stats_response.status_code == 200:
-                stats = stats_response.json()
-                actual_count = stats.get('count', len(ATTACK_BUFFER))
-                log_date = stats.get('date', datetime.now().strftime('%Y%m%d'))
+            <h3>Attack Summary:</h3>
+            <ul>
+        """
+        
+        # ✅ DÙNG batch_data thay vì ATTACK_BUFFER
+        for i, flow in enumerate(batch_data[:15], 1):
+            flow_id = flow.get("flow_id", "unknown")
+            src_ip = flow.get("src_ip", "")
+            src_port = flow.get("src_port", "")
+            dst_ip = flow.get("dst_ip", "")
+            dst_port = flow.get("dst_port", "")
+            
+            html_body += f"""
+            <li>
+                Flow ID: {flow_id} | 
+                Src: <a href="http://ip-api.com/json/{src_ip}">{src_ip}:{src_port}</a> → 
+                Dst: <a href="http://ip-api.com/json/{dst_ip}">{dst_ip}:{dst_port}</a>
+            </li>
+            """
+        
+        if actual_count > 15:
+            html_body += f"<li>... and {actual_count - 15} more flows</li>"
+        
+        html_body += """
+            </ul>
+            <p style="color: #5bc0de;">
+                All attack traffic has been redirected to Honeypot system.
+            </p>
+            <p style="color: #5bc0de;">
+                Check: http://honeypot.qmuit.id.vn/stats
+            </p>
+        </body>
+        </html>
+        """
+        
+        # Send email via Lambda
+        if EMAIL_LAMBDA_URL:
+            payload = {
+                "subject": subject,
+                "body": html_body,
+                "count": actual_count,
+                "timestamp": timestamp
+            }
+            
+            response = requests.post(EMAIL_LAMBDA_URL, json=payload, timeout=5)
+            
+            if response.status_code == 200:
+                logger.info(f"[EMAIL] ✅ Sent alert for {actual_count} attacks")
             else:
-                # Fallback nếu /stats lỗi
-                actual_count = len(ATTACK_BUFFER)
-                log_date = datetime.now().strftime('%Y%m%d')
-            
-            # Generate email HTML
-            timestamp = datetime.now().isoformat()
-            
-            # ✅ DÙNG actual_count thay vì len(ATTACK_BUFFER)
-            subject = f"🚨 ARF IDS Alert - {actual_count} attacks detected"
-            
-            # Build HTML body
-            html_body = f"""
-            <html>
-            <body style="font-family: Arial, sans-serif; line-height: 1.6;">
-                <h2 style="color: #d9534f;">IDS Attack Detection Alert</h2>
-                <p><strong>Time:</strong> {timestamp}</p>
-                <p><strong>Total Attack Traffic:</strong> {actual_count} flows</p>
-                
-                <h3>Attack Summary:</h3>
-                <ul>
-            """
-            
-            # List first 15 attacks (giữ nguyên)
-            for i, flow in enumerate(list(ATTACK_BUFFER)[:15], 1):
-                flow_id = flow.get("Flow ID", "unknown")
-                src_ip = flow.get("Source IP", "")
-                src_port = flow.get("Source Port", "")
-                dst_ip = flow.get("Destination IP", "")
-                dst_port = flow.get("Destination Port", "")
-                
-                html_body += f"""
-                <li>
-                    Flow ID: {flow_id} | 
-                    Src: <a href="http://ip-api.com/json/{src_ip}">{src_ip}:{src_port}</a> → 
-                    Dst: <a href="http://ip-api.com/json/{dst_ip}">{dst_ip}:{dst_port}</a>
-                </li>
-                """
-            
-            if actual_count > 15:
-                html_body += f"<li>... and {actual_count - 15} more flows</li>"
-            
-            html_body += """
-                </ul>
-                <p style="color: #5bc0de;">
-                    All attack traffic has been redirected to Honeypot system.
-                </p>
-            </body>
-            </html>
-            """
-            
-            # Send email via Lambda
-            if EMAIL_LAMBDA_URL:
-                payload = {
-                    "subject": subject,
-                    "body": html_body,
-                    "count": actual_count,  # ✅ Gửi actual_count
-                    "timestamp": timestamp
-                }
-                
-                response = requests.post(EMAIL_LAMBDA_URL, json=payload, timeout=5)
-                
-                if response.status_code == 200:
-                    logger.info(f"[EMAIL] Sent alert for {actual_count} attacks")
-                else:
-                    logger.error(f"[EMAIL] Failed: {response.status_code} - {response.text}")
-            
-            # Clear buffer
-            ATTACK_BUFFER.clear()
-            last_attack_time = None
-            
-        except Exception as e:
-            logger.error(f"[EMAIL ERROR] {str(e)}")
+                logger.error(f"[EMAIL] ❌ Failed: {response.status_code} - {response.text}")
+        
+    except Exception as e:
+        logger.error(f"[EMAIL ERROR] {str(e)}")
 
 # Start batch worker thread
 threading.Thread(target=batch_alert_worker, daemon=True).start()
