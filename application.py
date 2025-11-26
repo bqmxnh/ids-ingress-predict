@@ -19,6 +19,16 @@ import os
 import requests
 from collections import deque
 import time
+
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s [%(levelname)s] %(message)s',
+    handlers=[
+        logging.StreamHandler(),  # Console output
+        logging.FileHandler('/home/ubuntu/logs/ids_agent.log')  # File output
+    ]
+)
+logger = logging.getLogger(__name__)
 ##############
 
 # Flask Setup
@@ -47,7 +57,18 @@ BATCH_TIMEOUT = 60
 LOCK = threading.Lock()
 last_attack_time = None
 
+logger.info("=" * 60)
+logger.info("IDS AGENT CONFIGURATION")
+logger.info("=" * 60)
+logger.info(f"HONEYPOT_URL     : {HONEYPOT_URL}")
+logger.info(f"EMAIL_LAMBDA_URL : {EMAIL_LAMBDA_URL if EMAIL_LAMBDA_URL else '⚠️  NOT SET'}")
+logger.info(f"BATCH_TIMEOUT    : {BATCH_TIMEOUT}s")
+logger.info("=" * 60)
 
+if not EMAIL_LAMBDA_URL:
+    logger.warning("⚠️  EMAIL_LAMBDA_URL is empty! Email alerts are DISABLED.")
+else:
+    logger.info("✅ Email alerts are ENABLED")
 # ==========================================
 # REDIRECT ATTACK TO HONEYPOT
 # ==========================================
