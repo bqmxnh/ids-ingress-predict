@@ -173,8 +173,8 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
             </li>
             """
         
-        if actual_count > 15:
-            html_body += f"<li>... and {actual_count - 15} more flows</li>"
+        if batch_count > 15:
+            html_body += f"<li>... and {batch_count - 15} more flows</li>"
         
         html_body += """
             </ul>
@@ -193,14 +193,14 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
             payload = {
                 "subject": subject,
                 "body": html_body,
-                "count": actual_count,
-                "timestamp": timestamp
+                "count": batch_count,
+                "timestamp": timestamp_iso
             }
             
             response = requests.post(EMAIL_LAMBDA_URL, json=payload, timeout=5)
             
             if response.status_code == 200:
-                logger.info(f"[EMAIL] ✅ Sent alert for {actual_count} attacks")
+                logger.info(f"[EMAIL] ✅ Sent alert for {batch_count} attacks")
             else:
                 logger.error(f"[EMAIL] ❌ Failed: {response.status_code} - {response.text}")
         
