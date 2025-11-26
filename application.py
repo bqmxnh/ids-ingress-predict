@@ -6,7 +6,7 @@ import logging
 import json
 import threading
 import math
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
@@ -138,28 +138,20 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
         return
     
     try:
-        # ✅ LẤY COUNT TỪ HONEYPOT (không cần LOCK)
-        honeypot_stats_url = HONEYPOT_URL.replace('/receive_attack', '/stats')
-        stats_response = requests.get(honeypot_stats_url, timeout=3)
-        
-        if stats_response.status_code == 200:
-            stats = stats_response.json()
-            actual_count = stats.get('count', len(batch_data))
-            log_date = stats.get('date', datetime.now().strftime('%Y%m%d'))
-        else:
-            actual_count = len(batch_data)
-            log_date = datetime.now().strftime('%Y%m%d')
+        batch_count = len(batch_data)
         
         # Generate email HTML
-        timestamp = datetime.now().isoformat()
-        subject = f"🚨 ARF IDS Alert - {actual_count} attacks detected"
+        dt_now = datetime.now(timezone(timedelta(hours=7)))
+        timestamp_display = dt_now.strftime('%Y-%m-%d %H:%M:%S')  # 2025-11-26 22:48:46
+        timestamp_iso = dt_now.isoformat()
+        subject = f"🚨 ARF IDS Alert - {batch_count} attacks detected in last batch"
         
         html_body = f"""
         <html>
         <body style="font-family: Arial, sans-serif; line-height: 1.6;">
             <h2 style="color: #d9534f;">IDS Attack Detection Alert</h2>
-            <p><strong>Time:</strong> {timestamp}</p>
-            <p><strong>Total Attack Traffic:</strong> {actual_count} flows</p>
+            <p><strong>Time:</strong> {timestamp_display}</p>
+            <p><strong>Total Attack Traffic:</strong> {batch_count} flows</p>
             
             <h3>Attack Summary:</h3>
             <ul>
