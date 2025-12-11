@@ -287,6 +287,7 @@ def log_async(result):
                 "flow_id": str(result["flow_id"]),
                 "timestamp": result["timestamp_ms"],
                 "label": normalize_label(result["binary_prediction"]),
+                "true_label": result.get("true_label", "unknown"),
                 "content": f"{result['src_ip']}:{result['src_port']} → {result['dst_ip']}:{result['dst_port']} ({result['protocol']}) - {result['binary_confidence']}",
                 "features_json": json.dumps(result["features"])
             })
@@ -377,7 +378,10 @@ def feedback_flow():
 
             if idx is not None:
                 flow_results[idx]["feedback_report"] = report
+                flow_results[idx]["true_label"] = p.get("true_label") 
                 socketio.emit("update_flow", flow_results[idx])
+                # ghi log có true_label vào DynamoDB
+                log_async(flow_results[idx])
 
         # ---- Nếu model học thì highlight ----
         if report.get("learned") is True:
