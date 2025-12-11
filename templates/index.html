@@ -29,33 +29,6 @@
       animation: slideIn 0.4s ease-out;
     }
 
-    .flash-feedback {
-      animation: flashYellow 1.5s ease-out;
-    }
-
-    .flash-learn {
-      animation: flashRed 1.5s ease-out;
-    }
-
-    @keyframes flashYellow {
-      0% {
-        background-color: #fff9c2;
-      }
-
-      100% {
-        background-color: transparent;
-      }
-    }
-
-    @keyframes flashRed {
-      0% {
-        background-color: #ffd1d1;
-      }
-
-      100% {
-        background-color: transparent;
-      }
-    }
 
     @keyframes slideIn {
       from {
@@ -88,6 +61,24 @@
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
       <canvas id="flowChart" class="w-full h-64"></canvas>
     </div>
+
+    <!-- Right Side Cards -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
+    
+      <!-- Drift Counter -->
+      <div id="driftBox" class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border-2 border-transparent">
+        <h3 class="text-lg font-semibold text-red-500">Drift Detected</h3>
+        <p id="driftCount" class="text-4xl font-bold mt-2">0</p>
+      </div>
+    
+      <!-- Feedback Counter -->
+      <div id="feedbackBox" class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border-2 border-transparent">
+        <h3 class="text-lg font-semibold text-indigo-400">Feedback Sent</h3>
+        <p id="feedbackCount" class="text-4xl font-bold mt-2">0</p>
+      </div>
+    
+    </div>
+
 
     <!-- Table -->
     <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
@@ -201,7 +192,7 @@
     function renderTable() {
       tbody.innerHTML = flows.map(f => `
         <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow ${f.flash_class || ""}"
-            onclick='showPopup(${JSON.stringify(f)})'>
+            onclick='showPopup(${JSON.stringify(f).replace(/'/g, "&apos;")})'
           <td class="p-3 text-sm">${f.flow_id}</td>
           <td class="p-3 text-sm">${f.src_ip}:${f.src_port}</td>
           <td class="p-3 text-sm">${f.dst_ip}:${f.dst_port}</td>
@@ -215,6 +206,10 @@
       `).join("");
     }
 
+    /* ---------------- Counters ---------------- */
+    let driftCount = 0;
+    let feedbackCount = 0;
+
     /* ---------------- Sockets ---------------- */
     socket.on("new_flow", (flow) => {
       flow.flash_class = "";
@@ -225,21 +220,46 @@
     });
 
     socket.on("feedback_event", (fb) => {
+      // --- Increase total feedback count ---
+      feedbackCount++;
+      document.getElementById("feedbackCount").innerText = feedbackCount;
+    
+      // --- Feedback box effect ---
+      const fbBox = document.getElementById("feedbackBox");
+      fbBox.classList.add("animate-pulse", "border-indigo-400");
+      setTimeout(() => fbBox.classList.remove("animate-pulse", "border-indigo-400"), 1500);
+    
+      // --- Drift detected ---
+      if (fb.drift_detected === true) {
+        driftCount++;
+        document.getElementById("driftCount").innerText = driftCount;
+    
+        // Drift box effect
+        const box = document.getElementById("driftBox");
+        box.classList.add("animate-pulse", "border-red-500");
+        setTimeout(() => box.classList.remove("animate-pulse", "border-red-500"), 1500);
+      }
+    
+      // Update table entry if exists
       const idx = flows.findIndex(f => f.flow_id === fb.flow_id);
       if (idx !== -1) {
-        flows[idx].flash_class = "flash-feedback";
+        flows[idx].feedback_report = fb;
         renderTable();
       }
     });
 
+
+    
+
     socket.on("learn_event", (report) => {
       const idx = flows.findIndex(f => f.flow_id === report.flow_id);
       if (idx !== -1) {
-        flows[idx].flash_class = "flash-learn";
         flows[idx].feedback_report = report;
         renderTable();
       }
     });
+
+    
 
 
     /* ---------------- Popup rendering ---------------- */
