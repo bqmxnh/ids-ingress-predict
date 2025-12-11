@@ -365,11 +365,7 @@ def feedback_flow():
         report = r.json()
 
         # ---- Gửi event lên UI ----
-        socketio.emit("feedback_event", {
-            "flow_id": flow_id,
-            "true_label": p.get("true_label"),
-            "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        })
+        socketio.emit("feedback_event", report)
 
         # ---- Gắn report vào flow trong bộ nhớ ----
         with flow_lock:
