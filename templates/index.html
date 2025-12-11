@@ -244,6 +244,7 @@
       const idx = flows.findIndex(f => f.flow_id === fb.flow_id);
       if (idx !== -1) {
         flows[idx].feedback_report = fb;
+        flows[idx].true_label = fb.true_label;
         renderTable();
       }
     });
@@ -289,14 +290,10 @@
       // Feedback report
       if (flow.feedback_report) {
         const fb = flow.feedback_report;
+        addRow("Predicted", fb.predicted);
         addRow("True Label", fb.true_label);
-        addRow("Pred Before", fb.pred_before);
-        addRow("Conf Before", fb.conf_before);
-        addRow("Pred After", fb.pred_after);
-        addRow("Conf After", fb.conf_after);
-        addRow("Δ Confidence", fb.delta_conf);
-        addRow("Need Learning", fb.need_learning ? "YES" : "NO");
-        addRow("Learned", fb.learned ? "YES" : "NO");
+        addRow("Match?", fb.match ? "✓ Correct" : "✗ Wrong");
+        addRow("Drift Detected", fb.drift_detected ? "YES" : "NO");
       }
 
       // Features (collapsed preview)
