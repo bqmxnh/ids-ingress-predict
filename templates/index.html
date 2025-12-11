@@ -260,7 +260,26 @@
       }
     });
 
+
+    // ==================== LOAD HISTORY ON PAGE LOAD ====================
+    async function loadHistory() {
+      try {
+        const res = await fetch("/history");
+        const data = await res.json();
     
+        flows = data;               // khôi phục lịch sử
+        renderTable();              // render lại bảng
+        data.forEach(updateChart);  // khôi phục chart
+    
+        console.log("[HISTORY] Loaded", data.length, "flows");
+      } catch (err) {
+        console.error("Failed to load history:", err);
+      }
+    }
+    
+    // chạy khi mở web
+    loadHistory();
+    // ==================================================================
 
 
     /* ---------------- Popup rendering ---------------- */
