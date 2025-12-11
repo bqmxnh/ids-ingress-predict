@@ -389,6 +389,10 @@ def feedback_flow():
         logging.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/history", methods=["GET"])
+def get_history():
+    with flow_lock:
+        return jsonify(flow_results[-500:]), 200
 
 
 @app.route("/")
