@@ -192,7 +192,7 @@
     function renderTable() {
       tbody.innerHTML = flows.map(f => `
         <tr class="hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors new-flow ${f.flash_class || ""}"
-            onclick='showPopup(${JSON.stringify(f).replace(/'/g, "&apos;")})'
+            onclick='showPopup(${JSON.stringify(f).replace(/"/g, "&quot;")})'>
           <td class="p-3 text-sm">${f.flow_id}</td>
           <td class="p-3 text-sm">${f.src_ip}:${f.src_port}</td>
           <td class="p-3 text-sm">${f.dst_ip}:${f.dst_port}</td>
