@@ -221,7 +221,7 @@ def redirect_to_honeypot(flow_data, label, confidence):
                 f"[→ HONEYPOT] Flow {flow_id[: 16]}...  | "
                 f"{src_ip}:{src_port} → {dst_ip}:{dst_port} | "
                 f"Proto: {protocol} | "
-                f"Conf: {confidence:. 2%} | "
+                f"Conf: {confidence*100:. 2%} | "
                 f"Latency: {latency_ms:.2f}ms"
             )
         else:
@@ -630,22 +630,14 @@ def get_redirection_metrics():
 
 @app.route("/metrics/redirection/summary", methods=["GET"])
 def get_redirection_summary():
-    """
-    Get human-readable summary of redirection metrics
-    
-    Returns plain text summary for quick inspection via curl/browser.
-    
-    Returns:
-        Plain text summary with key metrics and baseline comparison
-    
-    Example:
-        curl http://ids.qmuit.id. vn/metrics/redirection/summary
-    """
-    try: 
+    try:
         summary = redirection_metrics.get_summary_text()
-        return summary, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+        return summary, 200, {'Content-Type':  'text/plain; charset=utf-8'}
     except Exception as e:
-        return f"Error:  {str(e)}", 500
+        import traceback
+        error_detail = traceback.format_exc()
+        logger.error(f"[METRICS SUMMARY ERROR] {error_detail}")
+        return f"Error: {str(e)}\n\n{error_detail}", 500
 
 @app.route("/metrics/redirection/export", methods=["POST"])
 def export_redirection_metrics():
