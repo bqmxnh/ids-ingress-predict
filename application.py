@@ -308,7 +308,7 @@ def log_feedback(result):
             table.update_item(
                 Key={
                     "flow_id": str(result["flow_id"]),
-                    "timestamp": result["timestamp_ms"]
+                    "timestamp": int(result["timestamp_ms"]) 
                 },
                 UpdateExpression="SET true_label = :label",
                 ExpressionAttributeValues={
@@ -403,9 +403,11 @@ def feedback_flow():
             if idx is not None:
                 flow_results[idx]["feedback_report"] = report
                 flow_results[idx]["true_label"] = p.get("true_label") 
-                socketio.emit("update_flow", flow_results[idx])
+
+                result = flow_results[idx]
+                socketio.emit("update_flow", result)
                 # ghi log có true_label vào DynamoDB
-                log_feedback(flow_results[idx])
+                log_feedback(result)
 
         # ---- Nếu model học thì highlight ----
         if report.get("learned") is True:
