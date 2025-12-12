@@ -278,22 +278,56 @@ def predict_api(flow_id, features):
         return "error", 0.0
 
 # ============================== LOG TO DYNAMODB ========================
-def log_async(result):
+# ============================== LOG TO DYNAMODB ========================
+def log_ingest(result):
+    """Ghi log lúc ingest: KHÔNG có true_label"""
     if not table:
         return
+
     def worker():
         try:
             table.put_item(Item={
                 "flow_id": str(result["flow_id"]),
                 "timestamp": result["timestamp_ms"],
-                "label": normalize_label(result["binary_prediction"]),
-                "true_label": result.get("true_label", "unknown"),
-                "content": f"{result['src_ip']}:{result['src_port']} → {result['dst_ip']}:{result['dst_port']} ({result['protocol']}) - {result['binary_confidence']}",
-                "features_json": json.dumps(result["features"])
+                "src_ip": result["src_ip"],
+                "dst_ip": result["dst_ip"],
+                "src_port": result["src_port"],
+                "dst_port": result["dst_port"],
+                "protocol": result["protocol"],
+                "binary_prediction": result["binary_prediction"],
+                "binary_confidence": result["binary_confidence"],
+                "features_json": json.dumps(result["features"]),
+                "true_label": "pending"  # đánh dấu chưa có feedback
             })
         except Exception as e:
-            logging.error(f"DynamoDB error: {e}")
+            logging.error(f"DynamoDB ingest error: {e}")
+
     threading.Thread(target=worker, daemon=True).start()
+
+
+def log_feedback(result):
+    """UPDATE lại record khi có true_label"""
+    if not table:
+        return
+
+    def worker():
+        try:
+            table.update_item(
+                Key={"flow_id": str(result["flow_id"])},
+                UpdateExpression="""
+                    SET true_label = :label,
+                        feedback_report = :report
+                """,
+                ExpressionAttributeValues={
+                    ":label": normalize_label(result.get("true_label")),
+                    ":report": json.dumps(result.get("feedback_report"))
+                }
+            )
+        except Exception as e:
+            logging.error(f"DynamoDB update error: {e}")
+
+    threading.Thread(target=worker, daemon=True).start()
+
 
 # ============================== PROCESS FLOW ===========================
 def process_flow(p):
@@ -327,7 +361,7 @@ def process_flow(p):
             flow_results.pop(0)
 
     socketio.emit("new_flow", result)
-    log_async(result)
+    log_ingest(result)
     return result
 
 # ============================== INGEST =================================
@@ -377,7 +411,7 @@ def feedback_flow():
                 flow_results[idx]["true_label"] = p.get("true_label") 
                 socketio.emit("update_flow", flow_results[idx])
                 # ghi log có true_label vào DynamoDB
-                log_async(flow_results[idx])
+                log_feedback(flow_results[idx])
 
         # ---- Nếu model học thì highlight ----
         if report.get("learned") is True:
