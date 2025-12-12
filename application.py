@@ -30,6 +30,8 @@ logging.basicConfig(
     ]
 )
 logger = logging.getLogger(__name__)
+
+from metrics_collector import metrics as redirection_metrics
 ##############
 
 # Flask Setup
@@ -73,38 +75,179 @@ else:
 # ==========================================
 # REDIRECT ATTACK TO HONEYPOT
 # ==========================================
-def redirect_to_honeypot(flow_data, label):
+def redirect_to_honeypot(flow_data, label, confidence):
+    """
+    Redirect attack traffic to honeypot system with performance tracking
+    
+    Implementation based on:  
+      Beltran Lopez, P., et al. (2024). Cyber Deception Reactive:  
+      TCP Stealth Redirection to On-Demand Honeypots. arXiv:2402.09191v2
+      
+    Args:
+        flow_data: Dictionary containing flow features and metadata (5-tuple + features)
+        label: Predicted label from IDS (BENIGN/ATTACK)
+        confidence: Model confidence score (0.0 - 1.0)
+    
+    Process:
+      1. Validate attack classification
+      2. Prepare enriched redirection metadata
+      3. Measure redirection latency (for stealth evaluation)
+      4. Send to honeypot via HTTP POST
+      5. Record metrics for performance analysis
+      6. Buffer for batch email alerts
+    
+    Stealth Requirement (from paper):
+      - Latency must be < 10ms for 95% of redirections
+      - This ensures attackers cannot detect the redirection
+    """
     global last_attack_time
     
     if label.upper() != "ATTACK":
         return
     
+    # ============================================
+    # STEP 1: Extract flow metadata (5-tuple)
+    # ============================================
+    flow_id = flow_data.get("Flow ID", "unknown")
+    src_ip = flow_data.get("Source IP", "")
+    src_port = flow_data.get("Source Port", "")
+    dst_ip = flow_data. get("Destination IP", "")
+    dst_port = flow_data.get("Destination Port", "")
+    protocol = flow_data.get("Protocol", "")
+    
+    # ============================================
+    # STEP 2: Prepare enriched redirection metadata
+    # ============================================
+    # Per Beltran Lopez et al. (2024), redirection metadata should include:
+    # - Original flow identification (5-tuple)
+    # - IDS detection decision (label + confidence)
+    # - Session state information
+    # - Timestamp for correlation
+    
+    redirection_metadata = {
+        # === Flow Identification ===
+        "flow_id": flow_id,
+        "timestamp_utc": datetime.now(timezone.utc).isoformat(),
+        
+        # === 5-tuple (Network Flow Identity) ===
+        "src_ip": src_ip,
+        "src_port": src_port,
+        "dst_ip":  dst_ip,
+        "dst_port": dst_port,
+        "protocol": protocol,
+        
+        # === IDS Detection Decision ===
+        "ids_label": label,
+        "ids_confidence": round(confidence, 4),
+        "detection_timestamp": datetime.now(timezone.utc).isoformat(),
+        
+        # === Redirection Information ===
+        "redirection_decision": "REDIRECT_TO_HONEYPOT",
+        "redirection_method": "HTTP_JSON_SIMULATION",  # Honest about simulation approach
+        "honeypot_target":  HONEYPOT_URL,
+        "redirection_reason": f"IDS classified as {label} with {confidence*100:.1f}% confidence",
+        
+        # === Flow Features (for honeypot deep analysis) ===
+        "flow_features": flow_data,
+        
+        # === Session Metadata (simulated TCP state) ===
+        "session_metadata": {
+            "total_packets": int(flow_data.get("Total Fwd Packets", 0)) + int(flow_data.get("Total Backward Packets", 0)),
+            "total_bytes": int(flow_data.get("Total Length of Fwd Packets", 0)) + int(flow_data.get("Total Length of Bwd Packets", 0)),
+            "flow_duration_ms": float(flow_data.get("Flow Duration", 0)),
+            "tcp_flags": {
+                "SYN": int(flow_data.get("SYN Flag Count", 0)),
+                "FIN": int(flow_data. get("FIN Flag Count", 0)),
+                "RST":  int(flow_data.get("RST Flag Count", 0)),
+                "PSH": int(flow_data.get("PSH Flag Count", 0)),
+                "ACK": int(flow_data.get("ACK Flag Count", 0))
+            }
+        }
+    }
+    
+    # ============================================
+    # STEP 3: Buffer for batch email alert
+    # ============================================
     with LOCK:
-        # Add to buffer
         ATTACK_BUFFER.append({
-            "flow_id": flow_data.get("Flow ID"),
+            "flow_id": flow_id,
             "timestamp": datetime.now().isoformat(),
-            "src_ip": flow_data.get("Source IP"),
-            "src_port": flow_data.get("Source Port"),
-            "dst_ip": flow_data.get("Destination IP"),
-            "dst_port": flow_data.get("Destination Port"),
-            "protocol": flow_data.get("Protocol"),
+            "src_ip": src_ip,
+            "src_port": src_port,
+            "dst_ip": dst_ip,
+            "dst_port": dst_port,
+            "protocol": protocol,
             "features": flow_data,
-            "label": label
+            "label": label,
+            "confidence":  confidence
         })
         last_attack_time = time.time()
     
-    # Send to honeypot (non-blocking)
+    # ============================================
+    # STEP 4: Send to honeypot with latency measurement
+    # ============================================
+    # Per Beltran Lopez et al.  (2024):
+    # - Mean latency: 2.3ms
+    # - Max latency: 8.7ms
+    # - Stealth requirement:  < 10ms (undetectable by humans)
+    
+    start_time = time.time()
+    success = False
+    error_msg = None
+    
     try:
-        requests.post(
+        response = requests.post(
             HONEYPOT_URL,
-            json=flow_data,
-            timeout=2
+            json=redirection_metadata,
+            headers={
+                "X-IDS-Agent": "ARF-IDS-v1.0",
+                "X-Flow-ID": flow_id,
+                "X-IDS-Confidence": str(confidence),
+                "Content-Type": "application/json"
+            },
+            timeout=3  # 3 second timeout
         )
-        print(f"[→ HONEYPOT] Redirected flow {flow_data.get('Flow ID')}")
+        
+        # Calculate latency in milliseconds
+        latency_ms = (time.time() - start_time) * 1000
+        
+        if response.status_code == 200:
+            success = True
+            logger.info(
+                f"[→ HONEYPOT] Flow {flow_id[: 16]}...  | "
+                f"{src_ip}:{src_port} → {dst_ip}:{dst_port} | "
+                f"Proto: {protocol} | "
+                f"Conf: {confidence:. 2%} | "
+                f"Latency: {latency_ms:.2f}ms"
+            )
+        else:
+            error_msg = f"HTTP {response.status_code}"
+            logger.warning(
+                f"[!  HONEYPOT] Flow {flow_id[:16]}... | "
+                f"Failed with HTTP {response.status_code} | "
+                f"Latency: {latency_ms:.2f}ms"
+            )
+        
+        # ✅ RECORD METRICS for performance evaluation
+        redirection_metrics.record_redirection(flow_id, latency_ms, success, error_msg)
+        
+    except requests.exceptions.Timeout:
+        latency_ms = (time.time() - start_time) * 1000
+        error_msg = "Timeout (>3s)"
+        logger.error(f"[✗ HONEYPOT] Flow {flow_id[:16]}...  | Timeout after {latency_ms:.2f}ms")
+        redirection_metrics.record_redirection(flow_id, latency_ms, False, error_msg)
+        
+    except requests.exceptions.ConnectionError as e:
+        latency_ms = (time.time() - start_time) * 1000
+        error_msg = f"Connection Error: {str(e)[:50]}"
+        logger.error(f"[✗ HONEYPOT] Flow {flow_id[: 16]}... | Connection failed:  {e}")
+        redirection_metrics. record_redirection(flow_id, latency_ms, False, error_msg)
+        
     except Exception as e:
-        print(f"[!] Honeypot error: {e}")
-
+        latency_ms = (time.time() - start_time) * 1000
+        error_msg = f"Error: {str(e)[:50]}"
+        logger.error(f"[✗ HONEYPOT] Flow {flow_id[:16]}... | Unexpected error: {e}")
+        redirection_metrics.record_redirection(flow_id, latency_ms, False, error_msg)
 # ==========================================
 # BATCH ALERT THREAD
 # ==========================================
@@ -364,7 +507,7 @@ def process_flow(p):
     }
 
     #QuanTC add:
-    redirect_to_honeypot(p, label)
+    redirect_to_honeypot(p, label, conf)
     ####
 
     with flow_lock:
@@ -447,6 +590,87 @@ def get_history():
 def index():
     return render_template("index.html")
 
+######Quantc ADD#####
+# ============================== METRICS API ================================
+@app.route("/metrics/redirection", methods=["GET"])
+def get_redirection_metrics():
+    """
+    Get traffic redirection performance metrics
+    
+    Endpoint to retrieve detailed metrics about traffic redirection to honeypot. 
+    Compares performance with baseline from Beltran Lopez et al.  (2024).
+    
+    Metrics include:
+      - Latency statistics (mean, median, p95, p99, max)
+      - Throughput (redirections per second)
+      - Success/failure rate
+      - Stealth analysis (% below 10ms threshold)
+      - Baseline comparison with paper results
+    
+    Returns: 
+        JSON with comprehensive redirection performance data
+    
+    Example: 
+        curl http://ids. qmuit.id. vn/metrics/redirection | jq
+    
+    Reference:
+        Beltran Lopez et al. (2024) - arXiv:2402.09191v2
+        Baseline:  mean=2.3ms, max=8.7ms, detection_rate=0%
+    """
+    try:
+        stats = redirection_metrics.get_stats()
+        return jsonify(stats), 200
+    except Exception as e:
+        logging.error(f"Metrics API error: {e}")
+        return jsonify({"error": str(e)}), 500
 
+@app.route("/metrics/redirection/summary", methods=["GET"])
+def get_redirection_summary():
+    """
+    Get human-readable summary of redirection metrics
+    
+    Returns plain text summary for quick inspection via curl/browser.
+    
+    Returns:
+        Plain text summary with key metrics and baseline comparison
+    
+    Example:
+        curl http://ids.qmuit.id. vn/metrics/redirection/summary
+    """
+    try: 
+        summary = redirection_metrics.get_summary_text()
+        return summary, 200, {'Content-Type': 'text/plain; charset=utf-8'}
+    except Exception as e:
+        return f"Error:  {str(e)}", 500
+
+@app.route("/metrics/redirection/export", methods=["POST"])
+def export_redirection_metrics():
+    """
+    Export metrics to JSON file for offline analysis
+    
+    POST to trigger export of current metrics to file.
+    Useful for archiving metrics before restart or for batch analysis.
+    
+    Returns:
+        JSON with export status, filepath, and current stats
+    
+    Example:
+        curl -X POST http://ids.qmuit.id.vn/metrics/redirection/export
+    """
+    try:
+        filepath = "/home/ubuntu/logs/redirection_metrics.json"
+        success = redirection_metrics.export_json(filepath)
+        
+        if success:
+            return jsonify({
+                "status": "exported",
+                "filepath": filepath,
+                "stats": redirection_metrics.get_stats()
+            }), 200
+        else:
+            return jsonify({"status": "failed", "filepath": filepath}), 500
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+#####################
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5001)
