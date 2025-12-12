@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import eventlet
-eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
-
+eventlet.monkey_patch()
 import logging
 import json
 import threading
