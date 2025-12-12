@@ -181,7 +181,7 @@ Latency Statistics:
   Mean: {lat['mean']}ms  | Paper: {baseline['paper_mean_ms']}ms (Δ {baseline['mean_delta_ms']: +.2f}ms)
   Median: {lat['median']}ms
   P95: {lat['p95']}ms
-  Max: {lat['max']}ms  | Paper: {baseline['paper_max_ms']}ms (Δ {baseline['max_delta_ms']:+.2f}ms)
+  Max: {lat['max']}ms  | Paper: {baseline['paper_max_ms']}ms (Δ {baseline['max_delta_ms']: +.2f}ms)
 
 Stealth Requirement (<10ms):
   {stealth['below_10ms_percent']}% of redirections
