@@ -306,7 +306,10 @@ def log_feedback(result):
     def worker():
         try:
             table.update_item(
-                Key={"flow_id": str(result["flow_id"])},
+                Key={
+                    "flow_id": str(result["flow_id"]),
+                    "timestamp": result["timestamp_ms"]
+                },
                 UpdateExpression="SET true_label = :label",
                 ExpressionAttributeValues={
                     ":label": normalize_label(result.get("true_label"))
@@ -316,6 +319,7 @@ def log_feedback(result):
             logging.error(f"DynamoDB update error: {e}")
 
     threading.Thread(target=worker, daemon=True).start()
+
 
 
 
