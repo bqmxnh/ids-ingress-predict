@@ -277,10 +277,8 @@ def predict_api(flow_id, features):
         logging.error(f"Predict API error: {e}")
         return "error", 0.0
 
-# ============================== LOG TO DYNAMODB ========================
-# ============================== LOG TO DYNAMODB ========================
+# ============================== LOG TO DYNAMODB ========================#
 def log_ingest(result):
-    """Ghi log lúc ingest: KHÔNG có true_label"""
     if not table:
         return
 
@@ -289,15 +287,10 @@ def log_ingest(result):
             table.put_item(Item={
                 "flow_id": str(result["flow_id"]),
                 "timestamp": result["timestamp_ms"],
-                "src_ip": result["src_ip"],
-                "dst_ip": result["dst_ip"],
-                "src_port": result["src_port"],
-                "dst_port": result["dst_port"],
-                "protocol": result["protocol"],
-                "binary_prediction": result["binary_prediction"],
-                "binary_confidence": result["binary_confidence"],
-                "features_json": json.dumps(result["features"]),
-                "true_label": "pending"  # đánh dấu chưa có feedback
+                "label": normalize_label(result["binary_prediction"]),
+                "true_label": "unknown",   # luôn unknown khi ingest
+                "content": f"{result['src_ip']}:{result['src_port']} → {result['dst_ip']}:{result['dst_port']} ({result['protocol']}) - {result['binary_confidence']}",
+                "features_json": json.dumps(result["features"])
             })
         except Exception as e:
             logging.error(f"DynamoDB ingest error: {e}")
@@ -305,8 +298,8 @@ def log_ingest(result):
     threading.Thread(target=worker, daemon=True).start()
 
 
+
 def log_feedback(result):
-    """UPDATE lại record khi có true_label"""
     if not table:
         return
 
@@ -314,19 +307,16 @@ def log_feedback(result):
         try:
             table.update_item(
                 Key={"flow_id": str(result["flow_id"])},
-                UpdateExpression="""
-                    SET true_label = :label,
-                        feedback_report = :report
-                """,
+                UpdateExpression="SET true_label = :label",
                 ExpressionAttributeValues={
-                    ":label": normalize_label(result.get("true_label")),
-                    ":report": json.dumps(result.get("feedback_report"))
+                    ":label": normalize_label(result.get("true_label"))
                 }
             )
         except Exception as e:
             logging.error(f"DynamoDB update error: {e}")
 
     threading.Thread(target=worker, daemon=True).start()
+
 
 
 # ============================== PROCESS FLOW ===========================
