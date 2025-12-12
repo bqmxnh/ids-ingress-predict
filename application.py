@@ -307,38 +307,37 @@ def log_feedback(result):
 
     def worker():
         try:
-            # 1) Tìm bản ghi bằng flow_id
+            # 1) Query tất cả bản ghi của flow_id
             resp = table.query(
-                KeyConditionExpression=Key("flow_id").eq(result["flow_id"]),
-                ScanIndexForward=False,  # Lấy bản ghi mới nhất
-                Limit=1
+                KeyConditionExpression=Key("flow_id").eq(result["flow_id"])
             )
 
-            if not resp["Items"]:
+            items = resp.get("Items", [])
+            if not items:
                 logging.error(f"[DDB] No record found for flow_id={result['flow_id']}")
                 return
 
-            item = resp["Items"][0]
-            ts = item["timestamp"]  # timestamp đúng của ingest
+            # 2) Update ALL items trùng flow_id
+            for item in items:
+                ts = item["timestamp"]
 
-            # 2) Update true_label
-            table.update_item(
-                Key={
-                    "flow_id": result["flow_id"],
-                    "timestamp": ts
-                },
-                UpdateExpression="SET true_label = :label",
-                ExpressionAttributeValues={
-                    ":label": normalize_label(result.get("true_label"))
-                }
-            )
-
-            logging.info(f"[DDB] Updated true_label for {result['flow_id']}")
+                table.update_item(
+                    Key={
+                        "flow_id": result["flow_id"],
+                        "timestamp": ts
+                    },
+                    UpdateExpression="SET true_label = :label",
+                    ExpressionAttributeValues={
+                        ":label": normalize_label(result.get("true_label"))
+                    }
+                )
+                logging.info(f"[DDB] Updated true_label for {result['flow_id']} at timestamp {ts}")
 
         except Exception as e:
             logging.error(f"DynamoDB update error: {e}")
 
     threading.Thread(target=worker, daemon=True).start()
+
 
 
 
