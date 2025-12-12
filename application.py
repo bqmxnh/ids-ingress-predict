@@ -13,6 +13,8 @@ from werkzeug.middleware.proxy_fix import ProxyFix
 import boto3
 import httpx
 import os
+from boto3.dynamodb.conditions import Key
+
 
 ############
 # QuanTC add: 
@@ -305,16 +307,34 @@ def log_feedback(result):
 
     def worker():
         try:
+            # 1) Tìm bản ghi bằng flow_id
+            resp = table.query(
+                KeyConditionExpression=Key("flow_id").eq(result["flow_id"]),
+                ScanIndexForward=False,  # Lấy bản ghi mới nhất
+                Limit=1
+            )
+
+            if not resp["Items"]:
+                logging.error(f"[DDB] No record found for flow_id={result['flow_id']}")
+                return
+
+            item = resp["Items"][0]
+            ts = item["timestamp"]  # timestamp đúng của ingest
+
+            # 2) Update true_label
             table.update_item(
                 Key={
-                    "flow_id": str(result["flow_id"]),
-                    "timestamp": int(result["timestamp_ms"]) 
+                    "flow_id": result["flow_id"],
+                    "timestamp": ts
                 },
                 UpdateExpression="SET true_label = :label",
                 ExpressionAttributeValues={
                     ":label": normalize_label(result.get("true_label"))
                 }
             )
+
+            logging.info(f"[DDB] Updated true_label for {result['flow_id']}")
+
         except Exception as e:
             logging.error(f"DynamoDB update error: {e}")
 
