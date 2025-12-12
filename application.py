@@ -108,7 +108,11 @@ def redirect_to_honeypot(flow_data, label, confidence):
     # ============================================
     # STEP 1: Extract flow metadata (5-tuple)
     # ============================================
-    flow_id = flow_data.get("Flow ID", "unknown")
+    flow_id = flow_data.get("Flow ID")
+    if not flow_id or flow_id == "unknown": 
+        # Generate unique flow_id with timestamp
+        import uuid
+        flow_id = f"flow_{datetime.now().timestamp()}_{uuid.uuid4().hex[:8]}"
     src_ip = flow_data.get("Source IP", "")
     src_port = flow_data.get("Source Port", "")
     dst_ip = flow_data. get("Destination IP", "")
@@ -326,7 +330,7 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
                 All attack traffic has been redirected to Honeypot system.
             </p>
             <p style="color: #5bc0de;">
-                Check: http://honeypot.qmuit.id.vn/stats
+                Check: https://honeypot.qmuit.id.vn/stats
             </p>
         </body>
         </html>
