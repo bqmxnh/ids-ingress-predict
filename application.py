@@ -330,7 +330,7 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
                 All attack traffic has been redirected to Honeypot system.
             </p>
             <p style="color: #5bc0de;">
-                Check: https://honeypot.qmuit.id.vn/stats
+                Check: http://honeypot.qmuit.id.vn/stats
             </p>
         </body>
         </html>
