@@ -73,7 +73,7 @@ class RedirectionMetrics:
             
             # Log slow redirections (> 10ms threshold from paper)
             if latency_ms > 10.0:
-                logger.warning(f"[SLOW] Flow {flow_id[: 16]} took {latency_ms:. 2f}ms (>10ms threshold)")
+                logger.warning(f"[SLOW] Flow {flow_id[: 16]} took {latency_ms:.2f}ms (>10ms threshold)")
     
     def get_stats(self):
         """
