@@ -221,7 +221,7 @@ def redirect_to_honeypot(flow_data, label, confidence):
                 f"[→ HONEYPOT] Flow {flow_id[: 16]}...  | "
                 f"{src_ip}:{src_port} → {dst_ip}:{dst_port} | "
                 f"Proto: {protocol} | "
-                f"Conf: {confidence*100:. 2%} | "
+                f"Conf: {confidence*100:.2f}% | "
                 f"Latency: {latency_ms:.2f}ms"
             )
         else:
