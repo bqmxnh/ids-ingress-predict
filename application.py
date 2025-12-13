@@ -415,7 +415,7 @@ FEATURE_COLUMNS = [
 def predict_api(flow_id, features):
     try:
         payload = {"flow_id": flow_id, "features": features}
-        with httpx.Client(timeout=8.0) as c:
+        with httpx.Client(timeout=35.0) as c:
             r = c.post(MODEL_API_URL, json=payload)
         data = r.json()
         label = normalize_label(data.get("prediction", "unknown"))
@@ -552,7 +552,7 @@ def feedback_flow():
         }
 
         # ---- Gửi feedback tới model API ----
-        with httpx.Client(timeout=8.0) as c:
+        with httpx.Client(timeout=35.0) as c:
             r = c.post(FEEDBACK_API_URL, json=payload)
 
         report = r.json()
