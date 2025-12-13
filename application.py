@@ -541,48 +541,54 @@ def feedback_flow():
     try:
         p = request.get_json(force=True)
 
-        # ---- Lấy flow_id từ cả 2 kiểu ----
         flow_id = p.get("Flow ID") or p.get("flow_id")
+        true_label = normalize_label(p.get("true_label"))
 
-        # ---- Payload gửi tới API học ----
-        payload = {
-            "flow_id": flow_id,
-            "true_label": p.get("true_label"),
-            "features": p.get("features", {})
-        }
+        if not flow_id or not true_label:
+            return jsonify({"error": "missing flow_id or true_label"}), 400
 
-        # ---- Gửi feedback tới model API ----
-        with httpx.Client(timeout=35.0) as c:
-            r = c.post(FEEDBACK_API_URL, json=payload)
+        # Update DB (KHÔNG GỌI API)
+        resp = table.query(
+            KeyConditionExpression=Key("flow_id").eq(flow_id),
+            ScanIndexForward=False,
+            Limit=1
+        )
 
-        report = r.json()
+        items = resp.get("Items", [])
+        if not items:
+            return jsonify({"error": "flow not found"}), 404
 
-        # ---- Gửi event lên UI ----
-        socketio.emit("feedback_event", report)
+        item = items[0]
 
-        # ---- Gắn report vào flow trong bộ nhớ ----
+        table.update_item(
+            Key={
+                "flow_id": flow_id,
+                "timestamp": item["timestamp"]
+            },
+            UpdateExpression="SET true_label = :v",
+            ExpressionAttributeValues={
+                ":v": true_label
+            }
+        )
+
+        # Update UI memory (optional)
         with flow_lock:
             idx = next((i for i, f in enumerate(flow_results)
                         if f["flow_id"] == flow_id), None)
-
             if idx is not None:
-                flow_results[idx]["feedback_report"] = report
-                flow_results[idx]["true_label"] = p.get("true_label") 
+                flow_results[idx]["true_label"] = true_label
+                socketio.emit("update_flow", flow_results[idx])
 
-                result = flow_results[idx]
-                socketio.emit("update_flow", result)
-                # ghi log có true_label vào DynamoDB
-                log_feedback(result)
-
-        # ---- Nếu model học thì highlight ----
-        if report.get("learned") is True:
-            socketio.emit("learn_event", report)
-
-        return jsonify({"status": "ok", "model_response": report}), 200
+        return jsonify({
+            "status": "ok",
+            "flow_id": flow_id,
+            "true_label": true_label
+        }), 200
 
     except Exception as e:
-        logging.error(f"Feedback error: {e}")
+        logger.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/history", methods=["GET"])
 def get_history():
