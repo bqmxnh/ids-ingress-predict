@@ -218,7 +218,7 @@ def redirect_to_honeypot(flow_data, label, confidence):
         if response.status_code == 200:
             success = True
             logger.info(
-                f"[→ HONEYPOT] Flow {flow_id[: 16]}...  | "
+                f"[→ HONEYPOT] Flow {flow_id[:16]}...  | "
                 f"{src_ip}:{src_port} → {dst_ip}:{dst_port} | "
                 f"Proto: {protocol} | "
                 f"Conf: {confidence*100:.2f}% | "
@@ -244,7 +244,7 @@ def redirect_to_honeypot(flow_data, label, confidence):
     except requests.exceptions.ConnectionError as e:
         latency_ms = (time.time() - start_time) * 1000
         error_msg = f"Connection Error: {str(e)[:50]}"
-        logger.error(f"[✗ HONEYPOT] Flow {flow_id[: 16]}... | Connection failed:  {e}")
+        logger.error(f"[✗ HONEYPOT] Flow {flow_id[:16]}... | Connection failed:  {e}")
         redirection_metrics. record_redirection(flow_id, latency_ms, False, error_msg)
         
     except Exception as e:
