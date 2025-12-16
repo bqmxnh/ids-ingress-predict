@@ -589,6 +589,40 @@ def feedback_flow():
         logger.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
 
+@app.route("/evaluate_csv", methods=["POST"])
+def evaluate_csv():
+    """
+    Upload CSV → call IDS API /evaluate → return metrics
+    """
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+
+    try:
+        files = {
+            "file": (file.filename, file.stream, file.mimetype)
+        }
+
+        resp = requests.post(
+            EVALUATE_API_URL,
+            files=files,
+            timeout=120
+        )
+
+        if resp.status_code != 200:
+            return jsonify({
+                "error": "Evaluate API failed",
+                "detail": resp.text
+            }), 500
+
+        return jsonify(resp.json()), 200
+
+    except Exception as e:
+        logger.error(f"[EVALUATE] {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 
 @app.route("/history", methods=["GET"])
 def get_history():
