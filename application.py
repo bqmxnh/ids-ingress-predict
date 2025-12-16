@@ -637,7 +637,7 @@ def index():
 
 ######Quantc ADD#####
 # ============================== METRICS API ================================
-@app.route("/metrics/redirection", methods=["GET"])
+@app.route("/redirection/stats", methods=["GET"])
 def get_redirection_metrics():
     """
     Get traffic redirection performance metrics
@@ -669,7 +669,7 @@ def get_redirection_metrics():
         logging.error(f"Metrics API error: {e}")
         return jsonify({"error": str(e)}), 500
 
-@app.route("/metrics/redirection/summary", methods=["GET"])
+@app.route("/redirection/summary", methods=["GET"])
 def get_redirection_summary():
     try:
         summary = redirection_metrics.get_summary_text()
@@ -680,7 +680,7 @@ def get_redirection_summary():
         logger.error(f"[METRICS SUMMARY ERROR] {error_detail}")
         return f"Error: {str(e)}\n\n{error_detail}", 500
 
-@app.route("/metrics/redirection/export", methods=["POST"])
+@app.route("/redirection/export", methods=["POST"])
 def export_redirection_metrics():
     """
     Export metrics to JSON file for offline analysis
