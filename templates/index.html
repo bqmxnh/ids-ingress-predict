@@ -62,6 +62,32 @@
       <canvas id="flowChart" class="w-full h-64"></canvas>
     </div>
 
+    <!-- ========== CSV EVALUATION ========== -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-indigo-500 mb-3">
+        Offline / Shadow Evaluation
+      </h3>
+    
+      <input id="csvFile" type="file" accept=".csv"
+        class="block w-full text-sm text-gray-500 mb-4"/>
+    
+      <button onclick="uploadCSV()"
+        class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+        Evaluate CSV
+      </button>
+    
+      <!-- RESULT -->
+      <div id="evalResult" class="mt-6 hidden">
+        <h4 class="font-semibold mb-2">Evaluation Metrics</h4>
+        <div id="metricBox" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
+    
+        <h4 class="font-semibold mt-6 mb-2">Confusion Matrix</h4>
+        <pre id="cmBox"
+          class="text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto"></pre>
+      </div>
+    </div>
+
+
     <!-- Right Side Cards -->
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
     
@@ -350,6 +376,59 @@ ${JSON.stringify(flow.features, null, 2)}
     function closePopup() {
       document.getElementById("popup").classList.add("hidden");
     }
+    async function uploadCSV() {
+  const fileInput = document.getElementById("csvFile");
+  if (!fileInput.files.length) {
+    alert("Please select a CSV file");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("file", fileInput.files[0]);
+
+  try {
+    const res = await fetch("/evaluate_csv", {
+      method: "POST",
+      body: formData
+    });
+
+    const data = await res.json();
+    if (data.error) {
+      alert(data.error);
+      return;
+    }
+
+    renderEvalResult(data);
+
+  } catch (e) {
+    alert("Evaluation failed");
+    console.error(e);
+  }
+}
+
+function renderEvalResult(data) {
+  document.getElementById("evalResult").classList.remove("hidden");
+
+  const metrics = [
+    ["Accuracy", data.accuracy],
+    ["Precision", data.precision],
+    ["Recall", data.recall],
+    ["F1-score", data.f1],
+    ["Cohens Kappa", data.kappa],
+    ["Rows", data.rows_evaluated]
+  ];
+
+  const metricBox = document.getElementById("metricBox");
+  metricBox.innerHTML = metrics.map(([k, v]) => `
+    <div class="bg-gray-50 dark:bg-gray-700 p-3 rounded">
+      <div class="text-xs text-gray-500">${k}</div>
+      <div class="text-lg font-bold">${v}</div>
+    </div>
+  `).join("");
+
+  document.getElementById("cmBox").innerText =
+    JSON.stringify(data.confusion_matrix, null, 2);
+}
   </script>
 </body>
 
