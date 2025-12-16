@@ -44,6 +44,7 @@ logging.basicConfig(filename='ids.log', level=logging.DEBUG,
 
 MODEL_API_URL = "http://api.qmuit.id.vn/predict"
 FEEDBACK_API_URL = "http://api.qmuit.id.vn/feedback"
+EVALUATE_API_URL = "http://api.qmuit.id.vn/evaluate"
 AWS_REGION = "us-east-1"
 
 
