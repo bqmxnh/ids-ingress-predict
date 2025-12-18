@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import eventlet
-eventlet.monkey_patch()
 import logging
 import json
 import threading
@@ -37,11 +35,8 @@ from metrics_collector import metrics as redirection_metrics
 # Flask Setup
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-socketio = SocketIO(
-    app,
-    cors_allowed_origins="*",
-    async_mode="eventlet"
-)
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
+
 logging.basicConfig(filename='ids.log', level=logging.DEBUG,
                     format='%(asctime)s [%(levelname)s] %(message)s')
 
