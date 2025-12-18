@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-import eventlet
-eventlet.monkey_patch(socket=True, select=True, time=True, os=True, thread=False)
 import logging
 import json
 import threading
@@ -37,7 +35,7 @@ from metrics_collector import metrics as redirection_metrics
 # Flask Setup
 app = Flask(__name__)
 app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 logging.basicConfig(filename='ids.log', level=logging.DEBUG,
                     format='%(asctime)s [%(levelname)s] %(message)s')
@@ -513,7 +511,12 @@ def process_flow(p):
     }
 
     #QuanTC add:
-    redirect_to_honeypot(p, label, conf)
+    threading.Thread(
+        target=redirect_to_honeypot,
+        args=(p, label, conf),
+        daemon=True
+    ).start()
+    #MinhBQ add: chạy hàm redirect_to_honeypot trong thread riêng để không làm chậm quá trình ingest
     ####
 
     with flow_lock:
@@ -531,7 +534,14 @@ def ingest_flow():
     try:
         p = request.get_json(force=True)
         if "batch" in p:
-            return jsonify({"results": [process_flow(x) for x in p["batch"]]}), 200
+            for x in p["batch"]:
+                threading.Thread(
+                    target=process_flow,
+                    args=(x,),
+                    daemon=True
+                ).start()
+            return jsonify({"status": "accepted", "count": len(p["batch"])}), 202
+
         return jsonify(process_flow(p)), 200
     except Exception as e:
         logging.error(f"Ingest error: {e}")
