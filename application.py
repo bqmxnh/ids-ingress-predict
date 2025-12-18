@@ -421,11 +421,9 @@ FEATURE_COLUMNS = [
 def predict_api(flow_id, features):
     try:
         payload = {"flow_id": flow_id, "features": features}
-        r = HTTPX_CLIENT.post(MODEL_API_URL, json=payload)
+        r = requests.post(MODEL_API_URL, json=payload, timeout=5)
         data = r.json()
-        label = normalize_label(data.get("prediction", "unknown"))
-        conf = data.get("confidence", 0.0)
-        return label, conf
+        return normalize_label(data.get("prediction")), data.get("confidence", 0.0)
     except Exception as e:
         logging.error(f"Predict API error: {e}")
         return "error", 0.0
