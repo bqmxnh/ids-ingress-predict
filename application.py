@@ -44,6 +44,7 @@ MODEL_API_URL = "http://api.qmuit.id.vn/predict"
 FEEDBACK_API_URL = "http://api.qmuit.id.vn/feedback"
 EVALUATE_API_URL = "http://api.qmuit.id.vn/evaluate"
 AWS_REGION = "us-east-1"
+HTTPX_CLIENT = httpx.Client(timeout=10.0)
 
 
 #############
@@ -415,8 +416,7 @@ FEATURE_COLUMNS = [
 def predict_api(flow_id, features):
     try:
         payload = {"flow_id": flow_id, "features": features}
-        with httpx.Client(timeout=35.0) as c:
-            r = c.post(MODEL_API_URL, json=payload)
+        r = HTTPX_CLIENT.post(MODEL_API_URL, json=payload)
         data = r.json()
         label = normalize_label(data.get("prediction", "unknown"))
         conf = data.get("confidence", 0.0)
@@ -439,7 +439,9 @@ def log_ingest(result):
                 "true_label": "unknown",   # luôn unknown khi ingest
                 "content": f"{result['src_ip']}:{result['src_port']} → {result['dst_ip']}:{result['dst_port']} ({result['protocol']}) - {result['binary_confidence']}",
                 "features_json": json.dumps(result["features"])
-            })
+            },
+            ConditionExpression="attribute_not_exists(flow_id)"
+            )
         except Exception as e:
             logging.error(f"DynamoDB ingest error: {e}")
 
@@ -542,7 +544,8 @@ def ingest_flow():
                 ).start()
             return jsonify({"status": "accepted", "count": len(p["batch"])}), 202
 
-        return jsonify(process_flow(p)), 200
+        threading.Thread(target=process_flow, args=(p,), daemon=True).start()
+        return jsonify({"status": "accepted"}), 202
     except Exception as e:
         logging.error(f"Ingest error: {e}")
         return jsonify({"error": str(e)}), 500
