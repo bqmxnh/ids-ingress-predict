@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 import eventlet
 eventlet.monkey_patch()
-from eventlet.semaphore import Semaphore
 import logging
 import json
 import threading
@@ -63,7 +62,7 @@ HONEYPOT_URL = "http://honeypot.qmuit.id.vn/receive_attack"
 EMAIL_LAMBDA_URL=mail_url
 ATTACK_BUFFER = deque() 
 BATCH_TIMEOUT = 60
-LOCK = Semaphore()
+LOCK = threading.Lock()
 last_attack_time = None
 
 logger.info("=" * 60)
@@ -265,7 +264,7 @@ def batch_alert_worker():
     global last_attack_time
     
     while True:
-        eventlet.sleep(1)
+        time.sleep(1)
         batch_data = None
         with LOCK:
             if not ATTACK_BUFFER:
@@ -279,10 +278,11 @@ def batch_alert_worker():
                 last_attack_time = None
                 
         if batch_data:
-            socketio.start_background_task(
-                send_email_alert,
-                batch_data
-            )
+            threading.Thread(
+                target=send_email_alert,
+                args=(batch_data,),
+                daemon=True
+            ).start()
 
 def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
     """Send batch email alert after timeout"""
@@ -361,7 +361,7 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
         logger.error(f"[EMAIL ERROR] {str(e)}")
 
 # Start batch worker thread
-socketio.start_background_task(batch_alert_worker)
+threading.Thread(target=batch_alert_worker, daemon=True).start()
 #############
 
 try:
@@ -371,7 +371,7 @@ except:
     table = None
 
 flow_results = []
-flow_lock = Semaphore()
+flow_lock = threading.Lock()
 
 def safe(v):
     try:
@@ -421,9 +421,11 @@ FEATURE_COLUMNS = [
 def predict_api(flow_id, features):
     try:
         payload = {"flow_id": flow_id, "features": features}
-        r = requests.post(MODEL_API_URL, json=payload, timeout=5)
+        r = HTTPX_CLIENT.post(MODEL_API_URL, json=payload)
         data = r.json()
-        return normalize_label(data.get("prediction")), data.get("confidence", 0.0)
+        label = normalize_label(data.get("prediction", "unknown"))
+        conf = data.get("confidence", 0.0)
+        return label, conf
     except Exception as e:
         logging.error(f"Predict API error: {e}")
         return "error", 0.0
@@ -448,8 +450,7 @@ def log_ingest(result):
         except Exception as e:
             logging.error(f"DynamoDB ingest error: {e}")
 
-    socketio.start_background_task(worker)
-
+    threading.Thread(target=worker, daemon=True).start()
 
 
 
@@ -488,8 +489,7 @@ def log_feedback(result):
         except Exception as e:
             logging.error(f"DynamoDB update error: {e}")
 
-    socketio.start_background_task(worker)
-
+    threading.Thread(target=worker, daemon=True).start()
 
 
 
@@ -518,12 +518,12 @@ def process_flow(p):
     }
 
     #QuanTC add:
-    socketio.start_background_task(
-        redirect_to_honeypot,
-        p, label, conf
-    )
-
-    #MinhBQ add: background thread
+    threading.Thread(
+        target=redirect_to_honeypot,
+        args=(p, label, conf),
+        daemon=True
+    ).start()
+    #MinhBQ add: chạy hàm redirect_to_honeypot trong thread riêng để không làm chậm quá trình ingest
     ####
 
     with flow_lock:
@@ -542,10 +542,14 @@ def ingest_flow():
         p = request.get_json(force=True)
         if "batch" in p:
             for x in p["batch"]:
-                socketio.start_background_task(process_flow, x)
+                threading.Thread(
+                    target=process_flow,
+                    args=(x,),
+                    daemon=True
+                ).start()
             return jsonify({"status": "accepted", "count": len(p["batch"])}), 202
 
-        socketio.start_background_task(process_flow, p)
+        threading.Thread(target=process_flow, args=(p,), daemon=True).start()
         return jsonify({"status": "accepted"}), 202
     except Exception as e:
         logging.error(f"Ingest error: {e}")
