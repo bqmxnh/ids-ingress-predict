@@ -87,23 +87,27 @@
       </div>
     </div>
 
+    <!-- ========== CSV FEEDBACK ========== -->
+    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
+      <h3 class="text-lg font-semibold text-indigo-500 mb-3">
+        Batch Feedback (CSV Upload)
+      </h3>
 
-    <!-- Right Side Cards -->
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4 mb-6">
-    
-      <!-- Drift Counter -->
-      <div id="driftBox" class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border-2 border-transparent">
-        <h3 class="text-lg font-semibold text-red-500">Drift Detected</h3>
-        <p id="driftCount" class="text-4xl font-bold mt-2">0</p>
-      </div>
-    
-      <!-- Feedback Counter -->
-      <div id="feedbackBox" class="bg-white dark:bg-gray-800 shadow-lg rounded-lg p-4 border-2 border-transparent">
-        <h3 class="text-lg font-semibold text-indigo-400">Feedback Sent</h3>
-        <p id="feedbackCount" class="text-4xl font-bold mt-2">0</p>
-      </div>
-    
+      <p class="text-sm text-gray-500 mb-3">
+        CSV must contain: <code>Flow ID</code>, <code>Label</code>
+      </p>
+
+      <input id="feedbackCsvFile" type="file" accept=".csv"
+        class="block w-full text-sm text-gray-500 mb-4"/>
+
+      <button onclick="uploadFeedbackCSV()"
+        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+        Upload Feedback CSV
+      </button>
+
+      <div id="feedbackResult" class="mt-4 text-sm hidden"></div>
     </div>
+
 
 
     <!-- Table -->
@@ -306,6 +310,40 @@
     // chạy khi mở web
     loadHistory();
     // ==================================================================
+
+    async function uploadFeedbackCSV() {
+      const fileInput = document.getElementById("feedbackCsvFile");
+      if (!fileInput.files.length) {
+        alert("Please select a CSV file");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
+
+      try {
+        const res = await fetch("/feedback_csv", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+        const box = document.getElementById("feedbackResult");
+        box.classList.remove("hidden");
+
+        if (data.error) {
+          box.innerText = "❌ " + data.error;
+          box.className = "text-red-500 mt-4";
+        } else {
+          box.innerText = `✅ Updated ${data.updated} flows`;
+          box.className = "text-green-500 mt-4";
+        }
+
+      } catch (e) {
+        alert("Feedback upload failed");
+        console.error(e);
+      }
+    }
 
 
     /* ---------------- Popup rendering ---------------- */

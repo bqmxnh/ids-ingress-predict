@@ -603,6 +603,80 @@ def feedback_flow():
     except Exception as e:
         logger.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
+    
+
+    
+@app.route("/feedback_csv", methods=["POST"])
+def feedback_csv():
+    if "file" not in request.files:
+        return jsonify({"error": "No file uploaded"}), 400
+
+    file = request.files["file"]
+
+    try:
+        import pandas as pd
+
+        df = pd.read_csv(file)
+
+        # =======================
+        # VALIDATION
+        # =======================
+        if "Flow ID" not in df.columns or "Label" not in df.columns:
+            return jsonify({
+                "error": "CSV must contain 'Flow ID' and 'Label' columns"
+            }), 400
+
+        updated = 0
+        skipped = 0
+
+        for _, row in df.iterrows():
+            flow_id = str(row["Flow ID"]).strip()
+            true_label = normalize_label(row["Label"])
+
+            if not flow_id or flow_id.lower() == "nan":
+                skipped += 1
+                continue
+
+            # lấy record mới nhất của flow
+            resp = table.query(
+                KeyConditionExpression=Key("flow_id").eq(flow_id),
+                ScanIndexForward=False,
+                Limit=1
+            )
+
+            items = resp.get("Items", [])
+            if not items:
+                skipped += 1
+                continue
+
+            item = items[0]
+
+            table.update_item(
+                Key={
+                    "flow_id": flow_id,
+                    "timestamp": item["timestamp"]
+                },
+                UpdateExpression="SET true_label = :v",
+                ExpressionAttributeValues={
+                    ":v": true_label
+                }
+            )
+
+            updated += 1
+
+        return jsonify({
+            "status": "ok",
+            "updated": updated,
+            "skipped": skipped,
+            "total_rows": len(df)
+        }), 200
+
+    except Exception as e:
+        logger.error(f"[FEEDBACK CSV] {e}")
+        return jsonify({"error": str(e)}), 500
+
+    
+# ============================== EVALUATE ================================
 
 @app.route("/evaluate_csv", methods=["POST"])
 def evaluate_csv():
