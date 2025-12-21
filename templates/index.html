@@ -45,10 +45,11 @@
 </head>
 
 <body class="bg-gray-50 dark:bg-gray-900 text-gray-900 dark:text-gray-100 min-h-screen">
-  <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-7xl">
 
-    <!-- Header -->
-    <header class="mb-6 text-center">
+  <div class="max-w-[1600px] mx-auto p-6">
+
+    <!-- ================= HEADER ================= -->
+    <header class="mb-8 text-center">
       <h1 class="text-3xl sm:text-4xl font-bold text-indigo-600 dark:text-indigo-400">
         Network Traffic Analysis Dashboard
       </h1>
@@ -57,83 +58,115 @@
       </p>
     </header>
 
-    <!-- Chart -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 mb-6">
-      <canvas id="flowChart" class="w-full h-64"></canvas>
+    <!-- ================= MAIN GRID ================= -->
+    <div class="grid grid-cols-12 gap-6">
+
+      <!-- ===== LEFT SIDEBAR (STICKY) ===== -->
+      <aside class="col-span-12 lg:col-span-3">
+        <div class="sticky top-6 space-y-6">
+
+          <!-- ========== CSV EVALUATION ========== -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-indigo-500 mb-3">
+              Offline / Shadow Evaluation
+            </h3>
+
+            <input id="csvFile" type="file" accept=".csv"
+              class="block w-full text-sm text-gray-500 mb-4"/>
+
+            <button onclick="uploadCSV()"
+              class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
+              Evaluate CSV
+            </button>
+
+            <div id="evalSpinner" class="hidden mt-4 flex items-center gap-3">
+              <div class="w-5 h-5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+              <span class="text-sm text-gray-500">
+                Evaluating CSV, please wait...
+              </span>
+            </div>
+
+            <div id="evalResult" class="mt-6 hidden">
+              <h4 class="font-semibold mb-2">Evaluation Metrics</h4>
+              <div id="metricBox" class="grid grid-cols-2 gap-4"></div>
+
+              <h4 class="font-semibold mt-6 mb-2">Confusion Matrix</h4>
+              <pre id="cmBox"
+                class="text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto"></pre>
+            </div>
+          </div>
+
+          <!-- ========== CSV FEEDBACK ========== -->
+          <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+            <h3 class="text-lg font-semibold text-indigo-500 mb-3">
+              Batch Feedback (CSV Upload)
+            </h3>
+
+            <p class="text-sm text-gray-500 mb-3">
+              CSV must contain: <code>Flow ID</code>, <code>Label</code>
+            </p>
+
+            <input id="feedbackCsvFile" type="file" accept=".csv"
+              class="block w-full text-sm text-gray-500 mb-4"/>
+
+            <button onclick="uploadFeedbackCSV()"
+              class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
+              Upload Feedback CSV
+            </button>
+
+            <div id="feedbackSpinner" class="hidden mt-4 flex items-center gap-3">
+              <div class="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+              <span class="text-sm text-gray-500">
+                Uploading & updating labels...
+              </span>
+            </div>
+
+            <div id="feedbackResult" class="mt-4 text-sm hidden"></div>
+          </div>
+
+        </div>
+      </aside>
+
+      <!-- ===== RIGHT CONTENT ===== -->
+      <main class="col-span-12 lg:col-span-9 space-y-6">
+
+        <!-- Chart -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6">
+          <canvas id="flowChart" class="w-full h-64"></canvas>
+        </div>
+
+        <!-- Table -->
+        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
+          <table id="flowTable" class="w-full border-collapse">
+            <thead>
+              <tr class="bg-indigo-600 text-white text-sm uppercase">
+                <th class="p-3 text-left">Flow ID</th>
+                <th class="p-3 text-left">Source</th>
+                <th class="p-3 text-left">Destination</th>
+                <th class="p-3 text-left">Protocol</th>
+                <th class="p-3 text-left">Prediction</th>
+                <th class="p-3 text-left">Confidence</th>
+                <th class="p-3 text-left">Timestamp</th>
+              </tr>
+            </thead>
+            <tbody id="flowBody"></tbody>
+          </table>
+        </div>
+
+      </main>
+
     </div>
 
-    <!-- ========== CSV EVALUATION ========== -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h3 class="text-lg font-semibold text-indigo-500 mb-3">
-        Offline / Shadow Evaluation
-      </h3>
-    
-      <input id="csvFile" type="file" accept=".csv"
-        class="block w-full text-sm text-gray-500 mb-4"/>
-    
-      <button onclick="uploadCSV()"
-        class="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700">
-        Evaluate CSV
-      </button>
-    
-      <!-- RESULT -->
-      <div id="evalResult" class="mt-6 hidden">
-        <h4 class="font-semibold mb-2">Evaluation Metrics</h4>
-        <div id="metricBox" class="grid grid-cols-2 md:grid-cols-3 gap-4"></div>
-    
-        <h4 class="font-semibold mt-6 mb-2">Confusion Matrix</h4>
-        <pre id="cmBox"
-          class="text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto"></pre>
-      </div>
-    </div>
-
-    <!-- ========== CSV FEEDBACK ========== -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-      <h3 class="text-lg font-semibold text-indigo-500 mb-3">
-        Batch Feedback (CSV Upload)
-      </h3>
-
-      <p class="text-sm text-gray-500 mb-3">
-        CSV must contain: <code>Flow ID</code>, <code>Label</code>
-      </p>
-
-      <input id="feedbackCsvFile" type="file" accept=".csv"
-        class="block w-full text-sm text-gray-500 mb-4"/>
-
-      <button onclick="uploadFeedbackCSV()"
-        class="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700">
-        Upload Feedback CSV
-      </button>
-
-      <div id="feedbackResult" class="mt-4 text-sm hidden"></div>
-    </div>
-
-
-
-    <!-- Table -->
-    <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-4 sm:p-6 overflow-x-auto">
-      <table id="flowTable" class="w-full border-collapse">
-        <thead>
-          <tr class="bg-indigo-600 text-white text-sm uppercase">
-            <th class="p-3 text-left">Flow ID</th>
-            <th class="p-3 text-left">Source</th>
-            <th class="p-3 text-left">Destination</th>
-            <th class="p-3 text-left">Protocol</th>
-            <th class="p-3 text-left">Prediction</th>
-            <th class="p-3 text-left">Confidence</th>
-            <th class="p-3 text-left">Timestamp</th>
-          </tr>
-        </thead>
-        <tbody id="flowBody"></tbody>
-      </table>
-    </div>
-
-    <!-- Footer -->
-    <footer class="mt-6 text-center text-sm text-gray-500 dark:text-gray-400">
+    <!-- ================= FOOTER ================= -->
+    <footer class="mt-10 text-center text-sm text-gray-500 dark:text-gray-400">
       <p>Authors: MinhBQ - QuanTC</p>
       <p>Graduation Thesis - 2025</p>
     </footer>
+
   </div>
+
+</body>
+
 
   <!-- ========== POPUP CENTERED ========== -->
   <div id="popup"
@@ -236,9 +269,6 @@
       `).join("");
     }
 
-    /* ---------------- Counters ---------------- */
-    let driftCount = 0;
-    let feedbackCount = 0;
 
     /* ---------------- Sockets ---------------- */
     socket.on("new_flow", (flow) => {
@@ -248,48 +278,6 @@
       updateChart(flow);
       renderTable();
     });
-
-    socket.on("feedback_event", (fb) => {
-      // --- Increase total feedback count ---
-      feedbackCount++;
-      document.getElementById("feedbackCount").innerText = feedbackCount;
-    
-      // --- Feedback box effect ---
-      const fbBox = document.getElementById("feedbackBox");
-      fbBox.classList.add("animate-pulse", "border-indigo-400");
-      setTimeout(() => fbBox.classList.remove("animate-pulse", "border-indigo-400"), 1500);
-    
-      // --- Drift detected ---
-      if (fb.drift_detected === true) {
-        driftCount++;
-        document.getElementById("driftCount").innerText = driftCount;
-    
-        // Drift box effect
-        const box = document.getElementById("driftBox");
-        box.classList.add("animate-pulse", "border-red-500");
-        setTimeout(() => box.classList.remove("animate-pulse", "border-red-500"), 1500);
-      }
-    
-      // Update table entry if exists
-      const idx = flows.findIndex(f => f.flow_id === fb.flow_id);
-      if (idx !== -1) {
-        flows[idx].feedback_report = fb;
-        flows[idx].true_label = fb.true_label;
-        renderTable();
-      }
-    });
-
-
-    
-
-    socket.on("learn_event", (report) => {
-      const idx = flows.findIndex(f => f.flow_id === report.flow_id);
-      if (idx !== -1) {
-        flows[idx].feedback_report = report;
-        renderTable();
-      }
-    });
-
 
     // ==================== LOAD HISTORY ON PAGE LOAD ====================
     async function loadHistory() {
@@ -318,6 +306,9 @@
         return;
       }
 
+      const spinner = document.getElementById("feedbackSpinner");
+      spinner.classList.remove("hidden");
+
       const formData = new FormData();
       formData.append("file", fileInput.files[0]);
 
@@ -328,22 +319,26 @@
         });
 
         const data = await res.json();
+        spinner.classList.add("hidden");
+
         const box = document.getElementById("feedbackResult");
         box.classList.remove("hidden");
 
         if (data.error) {
-          box.innerText = "❌ " + data.error;
+          box.innerText = data.error;
           box.className = "text-red-500 mt-4";
         } else {
-          box.innerText = `✅ Updated ${data.updated} flows`;
+          box.innerText = `Updated ${data.updated}/${data.total_rows} flows`;
           box.className = "text-green-500 mt-4";
         }
 
       } catch (e) {
+        spinner.classList.add("hidden");
         alert("Feedback upload failed");
         console.error(e);
       }
     }
+
 
 
     /* ---------------- Popup rendering ---------------- */
@@ -415,34 +410,41 @@ ${JSON.stringify(flow.features, null, 2)}
       document.getElementById("popup").classList.add("hidden");
     }
     async function uploadCSV() {
-  const fileInput = document.getElementById("csvFile");
-  if (!fileInput.files.length) {
-    alert("Please select a CSV file");
-    return;
-  }
+      const fileInput = document.getElementById("csvFile");
+      if (!fileInput.files.length) {
+        alert("Please select a CSV file");
+        return;
+      }
 
-  const formData = new FormData();
-  formData.append("file", fileInput.files[0]);
+      const spinner = document.getElementById("evalSpinner");
+      spinner.classList.remove("hidden");
 
-  try {
-    const res = await fetch("/evaluate_csv", {
-      method: "POST",
-      body: formData
-    });
+      const formData = new FormData();
+      formData.append("file", fileInput.files[0]);
 
-    const data = await res.json();
-    if (data.error) {
-      alert(data.error);
-      return;
+      try {
+        const res = await fetch("/evaluate_csv", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+        spinner.classList.add("hidden");
+
+        if (data.error) {
+          alert(data.error);
+          return;
+        }
+
+        renderEvalResult(data);
+
+      } catch (e) {
+        spinner.classList.add("hidden");
+        alert("Evaluation failed");
+        console.error(e);
+      }
     }
 
-    renderEvalResult(data);
-
-  } catch (e) {
-    alert("Evaluation failed");
-    console.error(e);
-  }
-}
 
 function renderEvalResult(data) {
   document.getElementById("evalResult").classList.remove("hidden");

@@ -447,7 +447,7 @@ def log_ingest(result):
 
     threading.Thread(target=worker, daemon=True).start()
 
-
+# ============================== LOG TO DYNAMODB (if FLOW FEEDBACK) ========================#
 
 def log_feedback(result):
     if not table:
@@ -485,9 +485,6 @@ def log_feedback(result):
             logging.error(f"DynamoDB update error: {e}")
 
     threading.Thread(target=worker, daemon=True).start()
-
-
-
 
 
 # ============================== PROCESS FLOW ===========================
@@ -530,7 +527,7 @@ def process_flow(p):
     log_ingest(result)
     return result
 
-# ============================== INGEST =================================
+# ============================== FLOW INGREST =================================
 @app.route("/ingest_flow", methods=["POST"])
 def ingest_flow():
     try:
@@ -550,7 +547,7 @@ def ingest_flow():
         logging.error(f"Ingest error: {e}")
         return jsonify({"error": str(e)}), 500
 
-# ============================== FEEDBACK + UPDATE UI ====================
+# ============================== FLOW FEEDBACK ====================
 @app.route("/feedback_flow", methods=["POST"])
 def feedback_flow():
     try:
@@ -604,8 +601,7 @@ def feedback_flow():
         logger.error(f"Feedback error: {e}")
         return jsonify({"error": str(e)}), 500
     
-
-    
+# ============================== CSV FEEDBACK ================================
 @app.route("/feedback_csv", methods=["POST"])
 def feedback_csv():
     if "file" not in request.files:
@@ -677,7 +673,6 @@ def feedback_csv():
 
     
 # ============================== EVALUATE ================================
-
 @app.route("/evaluate_csv", methods=["POST"])
 def evaluate_csv():
     """
