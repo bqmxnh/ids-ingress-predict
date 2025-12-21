@@ -711,7 +711,7 @@ def evaluate_csv():
 @app.route("/history", methods=["GET"])
 def get_history():
     with flow_lock:
-        return jsonify(flow_results[-500:]), 200
+        return jsonify(flow_results[-2000:]), 200
 
 
 @app.route("/")
