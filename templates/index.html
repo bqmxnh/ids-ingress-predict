@@ -68,7 +68,7 @@
           <!-- ========== CSV EVALUATION ========== -->
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 class="text-lg font-semibold text-indigo-500 mb-3">
-              Offline / Shadow Evaluation
+              Offline Model Evaluation
             </h3>
 
             <input id="csvFile" type="file" accept=".csv"
@@ -91,15 +91,30 @@
               <div id="metricBox" class="grid grid-cols-2 gap-4"></div>
 
               <h4 class="font-semibold mt-6 mb-2">Confusion Matrix</h4>
-              <pre id="cmBox"
-                class="text-xs bg-gray-100 dark:bg-gray-700 p-3 rounded overflow-auto"></pre>
+
+              <p class="text-sm text-gray-500 mb-2">
+                Confusion matrix for binary classification (ATTACK vs BENIGN)
+              </p>
+
+              <div class="overflow-x-auto">
+                <table class="w-full text-sm border border-gray-300 dark:border-gray-700 rounded">
+                  <thead>
+                    <tr class="bg-gray-200 dark:bg-gray-700 text-center">
+                      <th class="p-2"></th>
+                      <th class="p-2">Predicted ATTACK</th>
+                      <th class="p-2">Predicted BENIGN</th>
+                    </tr>
+                  </thead>
+                  <tbody id="cmTableBody"></tbody>
+                </table>
+              </div>
             </div>
           </div>
 
           <!-- ========== CSV FEEDBACK ========== -->
           <div class="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
             <h3 class="text-lg font-semibold text-indigo-500 mb-3">
-              Batch Feedback (CSV Upload)
+              Label Feedback & Correction
             </h3>
 
             <p class="text-sm text-gray-500 mb-3">
@@ -466,9 +481,56 @@ function renderEvalResult(data) {
     </div>
   `).join("");
 
-  document.getElementById("cmBox").innerText =
-    JSON.stringify(data.confusion_matrix, null, 2);
+  renderConfusionMatrix(data.confusion_matrix);
 }
+
+function renderConfusionMatrix(cm) {
+  /*
+    Expected format:
+    {
+      "ATTACK": { "ATTACK": 498, "BENIGN": 2 },
+      "BENIGN": { "ATTACK": 15, "BENIGN": 485 }
+    }
+  */
+
+  const tp = cm["ATTACK"]["ATTACK"];
+  const fn = cm["ATTACK"]["BENIGN"];
+  const fp = cm["BENIGN"]["ATTACK"];
+  const tn = cm["BENIGN"]["BENIGN"];
+
+  const body = document.getElementById("cmTableBody");
+
+  body.innerHTML = `
+    <tr class="text-center">
+      <td class="p-2 font-semibold bg-gray-100 dark:bg-gray-800">
+        Actual ATTACK
+      </td>
+      <td class="p-2 text-red-600 font-semibold">
+        ${tp}
+        <div class="text-xs text-gray-400">(TP)</div>
+      </td>
+      <td class="p-2 text-yellow-600 font-semibold">
+        ${fn}
+        <div class="text-xs text-gray-400">(FN)</div>
+      </td>
+    </tr>
+
+    <tr class="text-center">
+      <td class="p-2 font-semibold bg-gray-100 dark:bg-gray-800">
+        Actual BENIGN
+      </td>
+      <td class="p-2 text-orange-600 font-semibold">
+        ${fp}
+        <div class="text-xs text-gray-400">(FP)</div>
+      </td>
+      <td class="p-2 text-green-600 font-semibold">
+        ${tn}
+        <div class="text-xs text-gray-400">(TN)</div>
+      </td>
+    </tr>
+  `;
+}
+
   </script>
 </body>
 
