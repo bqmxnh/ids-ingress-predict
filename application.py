@@ -40,9 +40,9 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 logging.basicConfig(filename='ids.log', level=logging.DEBUG,
                     format='%(asctime)s [%(levelname)s] %(message)s')
 
-MODEL_API_URL = "http://api.qmuit.id.vn/predict"
-FEEDBACK_API_URL = "http://api.qmuit.id.vn/feedback"
-EVALUATE_API_URL = "http://api.qmuit.id.vn/evaluate"
+MODEL_API_URL    = "https://api.qmuit.id.vn/predict"
+FEEDBACK_API_URL = "https://api.qmuit.id.vn/feedback"
+EVALUATE_API_URL = "https://api.qmuit.id.vn/evaluate"
 AWS_REGION = "us-east-1"
 HTTPX_CLIENT = httpx.Client(timeout=10.0)
 
