@@ -53,7 +53,7 @@ HTTPX_CLIENT = httpx.Client(timeout=10.0)
 # CONFIG
 # ==========================================
 mail_url=os.getenv("EMAIL_LAMBDA_URL", "") 
-HONEYPOT_URL = "http://honeypot.qmuit.id.vn/receive_attack"
+HONEYPOT_URL = "https://honeypot.qmuit.id.vn/receive_attack"
 EMAIL_LAMBDA_URL=mail_url
 ATTACK_BUFFER = deque() 
 BATCH_TIMEOUT = 60
@@ -316,8 +316,8 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
             html_body += f"""
             <li>
                 Flow ID: {flow_id} | 
-                Src: <a href="http://ip-api.com/json/{src_ip}">{src_ip}:{src_port}</a> → 
-                Dst: <a href="http://ip-api.com/json/{dst_ip}">{dst_ip}:{dst_port}</a>
+                Src: <a href="https://ip-api.com/json/{src_ip}">{src_ip}:{src_port}</a> → 
+                Dst: <a href="https://ip-api.com/json/{dst_ip}">{dst_ip}:{dst_port}</a>
             </li>
             """
         
@@ -330,7 +330,7 @@ def send_email_alert(batch_data):  # ✅ NHẬN batch_data từ args
                 All attack traffic has been redirected to Honeypot system.
             </p>
             <p style="color: #5bc0de;">
-                Check: http://honeypot.qmuit.id.vn/stats
+                Check: https://honeypot.qmuit.id.vn/stats
             </p>
         </body>
         </html>
@@ -739,7 +739,7 @@ def get_redirection_metrics():
         JSON with comprehensive redirection performance data
     
     Example: 
-        curl http://ids. qmuit.id. vn/metrics/redirection | jq
+        curl https://ids. qmuit.id. vn/metrics/redirection | jq
     
     Reference:
         Beltran Lopez et al. (2024) - arXiv:2402.09191v2
@@ -775,7 +775,7 @@ def export_redirection_metrics():
         JSON with export status, filepath, and current stats
     
     Example:
-        curl -X POST http://ids.qmuit.id.vn/metrics/redirection/export
+        curl -X POST https://ids.qmuit.id.vn/metrics/redirection/export
     """
     try:
         filepath = "/home/ubuntu/logs/redirection_metrics.json"
