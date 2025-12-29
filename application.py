@@ -264,9 +264,12 @@ def batch_alert_worker():
         with LOCK:
             if not ATTACK_BUFFER:
                 continue
-            
+            if last_attack_time is None:
+                continue
+                
+            time_since_last_attack = time.time() - last_attack_time
             # Check timeout
-            if last_attack_time and (time.time() - last_attack_time) >= BATCH_TIMEOUT:
+            if time_since_last_attack >= BATCH_TIMEOUT:
                 batch_size = len(ATTACK_BUFFER)
                 batch_data = list(ATTACK_BUFFER)
                 ATTACK_BUFFER.clear()
