@@ -4,7 +4,7 @@ import json
 import threading
 import math
 from datetime import datetime, timezone, timedelta
-from flask import Flask, request, jsonify, render_template, make_response
+from flask import Flask, request, jsonify, render_template
 from flask_socketio import SocketIO
 from werkzeug.middleware.proxy_fix import ProxyFix
 import boto3
@@ -188,10 +188,14 @@ def redirect_to_honeypot(flow_data, label, confidence):
         last_attack_time = time.time()
     
     # ============================================
-    # STEP 4: SSend to honeypot with ISOLATED LATENCY MEASUREMENT
+    # STEP 4: Send to honeypot with latency measurement
     # ============================================
+    # Per Beltran Lopez et al.  (2024):
+    # - Mean latency: 2.3ms
+    # - Max latency: 8.7ms
+    # - Stealth requirement:  < 10ms (undetectable by humans)
     
-    t_start = time.perf_counter()
+    start_time = time.time()
     success = False
     error_msg = None
     
@@ -200,44 +204,54 @@ def redirect_to_honeypot(flow_data, label, confidence):
             HONEYPOT_URL,
             json=redirection_metadata,
             headers={
-                "X-IDS-Agent": "ARF-IDS-v1.0.0",
+                "X-IDS-Agent": "ARF-IDS-v1.0",
                 "X-Flow-ID": flow_id,
                 "X-IDS-Confidence": str(confidence),
                 "Content-Type": "application/json"
             },
             timeout=3  # 3 second timeout
         )
-        t_end = time.perf_counter()
+        
         # Calculate latency in milliseconds
-        latency_ms = (t_end - t_start) * 1000
+        latency_ms = (time.time() - start_time) * 1000
         
         if response.status_code == 200:
             success = True
-            logger.info(f"[→ HONEYPOT] Success | Latency: {latency_ms:.3f}ms")
+            logger.info(
+                f"[→ HONEYPOT] Flow {flow_id[:16]}...  | "
+                f"{src_ip}:{src_port} → {dst_ip}:{dst_port} | "
+                f"Proto: {protocol} | "
+                f"Conf: {confidence*100:.2f}% | "
+                f"Latency: {latency_ms:.2f}ms"
+            )
         else:
-            logger.warning(f"[! HONEYPOT] HTTP {response.status_code} | Latency: {latency_ms:.3f}ms")
+            error_msg = f"HTTP {response.status_code}"
+            logger.warning(
+                f"[!  HONEYPOT] Flow {flow_id[:16]}... | "
+                f"Failed with HTTP {response.status_code} | "
+                f"Latency: {latency_ms:.2f}ms"
+            )
         
         # ✅ RECORD METRICS for performance evaluation
-        redirection_metrics.record_redirection(flow_id, latency_ms, success, f"HTTP {response.status_code}")
-        return latency_ms if success else None
+        redirection_metrics.record_redirection(flow_id, latency_ms, success, error_msg)
+        
     except requests.exceptions.Timeout:
         latency_ms = (time.time() - start_time) * 1000
         error_msg = "Timeout (>3s)"
         logger.error(f"[✗ HONEYPOT] Flow {flow_id[:16]}...  | Timeout after {latency_ms:.2f}ms")
         redirection_metrics.record_redirection(flow_id, latency_ms, False, error_msg)
-        return None
+        
     except requests.exceptions.ConnectionError as e:
         latency_ms = (time.time() - start_time) * 1000
         error_msg = f"Connection Error: {str(e)[:50]}"
         logger.error(f"[✗ HONEYPOT] Flow {flow_id[:16]}... | Connection failed:  {e}")
         redirection_metrics. record_redirection(flow_id, latency_ms, False, error_msg)
-        return None
+        
     except Exception as e:
         latency_ms = (time.time() - start_time) * 1000
         error_msg = f"Error: {str(e)[:50]}"
         logger.error(f"[✗ HONEYPOT] Flow {flow_id[:16]}... | Unexpected error: {e}")
         redirection_metrics.record_redirection(flow_id, latency_ms, False, error_msg)
-        return None
 # ==========================================
 # BATCH ALERT THREAD
 # ==========================================
@@ -499,11 +513,11 @@ def process_flow(p):
     }
 
     #QuanTC add:
-    redirect_latency = None
-    if label.upper() == "ATTACK":
-        redirect_latency = redirect_to_honeypot(p, label, conf)
-    
-    result["redirect_latency_ms"] = redirect_latency
+    threading.Thread(
+        target=redirect_to_honeypot,
+        args=(p, label, conf),
+        daemon=True
+    ).start()
     #MinhBQ add: chạy hàm redirect_to_honeypot trong thread riêng để không làm chậm quá trình ingest
     ####
 
@@ -529,15 +543,9 @@ def ingest_flow():
                     daemon=True
                 ).start()
             return jsonify({"status": "accepted", "count": len(p["batch"])}), 202
-        result = process_flow(p)
-        response = make_response(jsonify({
-            "status": "processed",
-            "prediction": result["binary_prediction"]
-        }))
-        if result.get("redirect_latency_ms"):
-            response.headers["X-Redirection-Latency"] = str(result["redirect_latency_ms"])
-            
-        return response
+
+        threading.Thread(target=process_flow, args=(p,), daemon=True).start()
+        return jsonify({"status": "accepted"}), 202
     except Exception as e:
         logging.error(f"Ingest error: {e}")
         return jsonify({"error": str(e)}), 500
