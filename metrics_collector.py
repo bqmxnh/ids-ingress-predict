@@ -59,11 +59,6 @@ class RedirectionMetrics:
                 return {
                     "status": "no_data",
                     "message": "No redirections recorded yet"
-                    "summary": {
-                        "total_attempts": self.total_attempts,
-                        "successful": self.successful,
-                        "failed": self.failed
-                    }
                 }
             
             latencies_list = sorted(self.latencies)
