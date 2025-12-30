@@ -195,7 +195,7 @@ def redirect_to_honeypot(flow_data, label, confidence):
     # - Max latency: 8.7ms
     # - Stealth requirement:  < 10ms (undetectable by humans)
     
-    start_time = time.time()
+    t_start = time.perf_counter()
     success = False
     error_msg = None
     
@@ -211,9 +211,9 @@ def redirect_to_honeypot(flow_data, label, confidence):
             },
             timeout=3  # 3 second timeout
         )
-        
+        t_end = time.perf_counter()
         # Calculate latency in milliseconds
-        latency_ms = (time.time() - start_time) * 1000
+        latency_ms = (t_end - t_start) * 1000
         
         if response.status_code == 200:
             success = True
