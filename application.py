@@ -56,7 +56,7 @@ mail_url=os.getenv("EMAIL_LAMBDA_URL", "")
 HONEYPOT_URL = "https://honeypot.qmuit.id.vn/receive_attack"
 EMAIL_LAMBDA_URL=mail_url
 ATTACK_BUFFER = deque() 
-BATCH_TIMEOUT = 60
+BATCH_TIMEOUT = 300
 LOCK = threading.Lock()
 last_attack_time = None
 
